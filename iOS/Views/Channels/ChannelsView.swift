@@ -96,11 +96,11 @@ public class ChannelsViewModel: ObservableObject {
             let response: APIResponse<ChannelPost> = try await NetworkManager.shared.request(endpoint: "channels.php", method: "POST", jsonBody: body)
             if response.success, let post = response.data {
                 await MainActor.run {
-                    if self.selectedChannelDetails?.id == channelId {
-                        if self.selectedChannelDetails?.posts == nil {
-                            self.selectedChannelDetails?.posts = []
-                        }
-                        self.selectedChannelDetails?.posts?.insert(post, at: 0)
+                    if var currentDetails = self.selectedChannelDetails, currentDetails.id == channelId {
+                        var currentPosts = currentDetails.posts ?? []
+                        currentPosts.insert(post, at: 0)
+                        currentDetails.posts = currentPosts
+                        self.selectedChannelDetails = currentDetails
                     }
                 }
                 return true
