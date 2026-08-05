@@ -47,15 +47,24 @@ public class MusicViewModel: ObservableObject {
         self.tracks = [
             Track(
                 id: 1,
-                title: "Midnight City",
-                artist: "M83",
-                durationSeconds: 243,
+                title: "ContrastFM — Прямой эфир (320 KBPS)",
+                artist: "Live Broadcast",
+                durationSeconds: 0,
                 coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                audioUrl: "http://46.53.128.120/contrastfm",
                 isLiked: true
             ),
             Track(
                 id: 2,
+                title: "Midnight City",
+                artist: "M83",
+                durationSeconds: 243,
+                coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
+                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                isLiked: true
+            ),
+            Track(
+                id: 3,
                 title: "Starboy (Feat. Daft Punk)",
                 artist: "The Weeknd",
                 durationSeconds: 230,
@@ -65,22 +74,13 @@ public class MusicViewModel: ObservableObject {
                 explicit: true
             ),
             Track(
-                id: 3,
+                id: 4,
                 title: "Blinding Lights",
                 artist: "The Weeknd",
                 durationSeconds: 200,
                 coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80",
                 audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
                 isLiked: true
-            ),
-            Track(
-                id: 4,
-                title: "Nightcall",
-                artist: "Kavinsky",
-                durationSeconds: 259,
-                coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-                isLiked: false
             )
         ]
     }

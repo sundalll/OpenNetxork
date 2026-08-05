@@ -21,16 +21,16 @@ public class AuthViewModel: ObservableObject {
     public func setupDemoUser() {
         let demoUser = User(
             id: 1,
-            username: "durov",
-            firstName: "Павел",
-            lastName: "Дуров",
+            username: "user",
+            firstName: "Пользователь",
+            lastName: "",
             avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
             coverUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-            statusText: "Верните стену! 🚀 Свобода общения.",
+            statusText: "Свобода общения и музыка 🚀",
             isVerified: true,
-            followersCount: 1420500,
+            followersCount: 1420,
             followingCount: 12,
-            bio: "Основатель социальной сети и мессенджера.",
+            bio: "Профиль социальной сети",
             isOnline: true,
             lastSeenText: "В сети"
         )
