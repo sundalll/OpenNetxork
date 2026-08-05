@@ -2,13 +2,17 @@ import Foundation
 import Combine
 
 public class ProfileViewModel: ObservableObject {
-    @Published public var userProfile: User
+    @Published public var user: User
     @Published public var userPosts: [Post] = []
+    @Published public var followers: [User] = []
+    @Published public var following: [User] = []
+    @Published public var isLoading: Bool = false
+    @Published public var isEditingProfile: Bool = false
     @Published public var statusEditingText: String = ""
     @Published public var isEditingStatus: Bool = false
     
     public init(user: User) {
-        self.userProfile = user
+        self.user = user
         self.statusEditingText = user.statusText ?? ""
         loadUserWall()
     }
@@ -16,7 +20,7 @@ public class ProfileViewModel: ObservableObject {
     public func loadUserWall() {
         let samplePost = Post(
             id: 201,
-            author: userProfile,
+            author: user,
             text: "Привет всем! Добро пожаловать на мою официальную страницу в приложении. Пишите в комментарии свои впечатления! ✨",
             likesCount: 88,
             isLiked: false,

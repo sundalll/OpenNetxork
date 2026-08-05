@@ -1,88 +1,200 @@
 import SwiftUI
 
+public class AuthViewModel: ObservableObject {
+    @Published public var isAuthenticated: Bool = false
+    @Published public var currentUser: User? = nil
+    @Published public var errorMessage: String? = nil
+    @Published public var isLoading: Bool = false
+
+    public init() {}
+
+    public func login(emailOrUsername: String, password: String) async -> Bool {
+        guard !emailOrUsername.isEmpty, !password.isEmpty else {
+            await MainActor.run { self.errorMessage = "Заполните все поля" }
+            return false
+        }
+
+        await MainActor.run { self.isLoading = true; self.errorMessage = nil }
+
+        let body: [String: Any] = [
+            "action": "login",
+            "email": emailOrUsername,
+            "password": password
+        ]
+
+        do {
+            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", body: body)
+            if response.success, let user = response.data {
+                await MainActor.run {
+                    self.currentUser = user
+                    self.isAuthenticated = true
+                    self.isLoading = false
+                }
+                return true
+            } else {
+                await MainActor.run {
+                    self.errorMessage = response.message ?? " Ошибка авторизации"
+                    self.isLoading = false
+                }
+                return false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Неверный логин или пароль"
+                self.isLoading = false
+            }
+            return false
+        }
+    }
+
+    public func register(username: String, email: String, password: String, firstName: String, lastName: String) async -> Bool {
+        guard !username.isEmpty, !email.isEmpty, !password.isEmpty, !firstName.isEmpty else {
+            await MainActor.run { self.errorMessage = "Заполните все обязательные поля" }
+            return false
+        }
+
+        await MainActor.run { self.isLoading = true; self.errorMessage = nil }
+
+        let body: [String: Any] = [
+            "action": "register",
+            "username": username,
+            "email": email,
+            "password": password,
+            "first_name": firstName,
+            "last_name": lastName
+        ]
+
+        do {
+            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", body: body)
+            if response.success, let user = response.data {
+                await MainActor.run {
+                    self.currentUser = user
+                    self.isAuthenticated = true
+                    self.isLoading = false
+                }
+                return true
+            } else {
+                await MainActor.run {
+                    self.errorMessage = response.message ?? "Ошибка регистрации"
+                    self.isLoading = false
+                }
+                return false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Ошибка при регистрации"
+                self.isLoading = false
+            }
+            return false
+        }
+    }
+}
+
 public struct AuthView: View {
-    @ObservedObject var authViewModel: AuthViewModel
+    @StateObject private var viewModel = AuthViewModel()
     @State private var isRegisterMode: Bool = false
 
-    public init(authViewModel: AuthViewModel) {
-        self.authViewModel = authViewModel
-    }
+    @State private var username: String = ""
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var firstName: String = ""
+    @State private var lastName: String = ""
+
+    public init() {}
 
     public var body: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            // App Logo Header
-            VStack(spacing: 12) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 64))
+            VStack(spacing: 8) {
+                Text("OpenNetwork")
+                    .font(.system(size: 36, weight: .black))
                     .foregroundColor(.blue)
-                
-                Text("VK Swift Social Network")
-                    .font(.system(size: 26, weight: .bold))
-                
-                Text("Общайтесь, слушайте музыку и смотрите видео")
-                    .font(.system(size: 14))
+
+                Text(isRegisterMode ? "Регистрация нового аккаунта" : "Войдите в свой профиль")
+                    .font(.system(size: 15))
                     .foregroundColor(.secondary)
+            }
+
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.red)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
             }
 
-            // Input Form
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
                 if isRegisterMode {
-                    TextField("Имя", text: $authViewModel.firstNameInput)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    TextField("Фамилия", text: $authViewModel.lastNameInput)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    TextField("Username", text: $authViewModel.usernameInput)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                
-                TextField("Email или телефон", text: $authViewModel.emailInput)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .autocapitalization(.none)
-                
-                SecureField("Пароль", text: $authViewModel.passwordInput)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-            }
-            .padding(.horizontal, 32)
+                    TextField("Имя (например: Иван)", text: $firstName)
+                        .padding()
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
 
-            // Submit Button
+                    TextField("Фамилия", text: $lastName)
+                        .padding()
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+
+                    TextField("Логин (username)", text: $username)
+                        .autocapitalization(.none)
+                        .padding()
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+                }
+
+                TextField("Email или логин", text: $email)
+                    .autocapitalization(.none)
+                    .padding()
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
+
+                SecureField("Пароль", text: $password)
+                    .padding()
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 24)
+
             Button(action: {
                 Task {
-                    await authViewModel.login()
+                    if isRegisterMode {
+                        _ = await viewModel.register(username: username, email: email, password: password, firstName: firstName, lastName: lastName)
+                    } else {
+                        _ = await viewModel.login(emailOrUsername: email, password: password)
+                    }
                 }
             }) {
                 HStack {
-                    if authViewModel.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    if viewModel.isLoading {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Text(isRegisterMode ? "Зарегистрироваться" : "Войти")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 16, weight: .bold))
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding()
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(12)
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal, 24)
+            .disabled(viewModel.isLoading)
 
-            // Toggle Register/Login Mode
             Button(action: {
                 withAnimation {
                     isRegisterMode.toggle()
+                    viewModel.errorMessage = nil
                 }
             }) {
-                Text(isRegisterMode ? "Уже есть аккаунт? Войти" : "Ещё нет аккаунта? Зарегистрироваться")
-                    .font(.system(size: 14))
+                Text(isRegisterMode ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Зарегистрироваться")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.blue)
             }
 
             Spacer()
         }
-        .background(Color(UIColor.systemBackground).ignoresSafeArea())
+        .padding(.vertical, 20)
     }
 }

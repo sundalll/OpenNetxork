@@ -1,135 +1,192 @@
 import SwiftUI
-import AVKit
 
-public struct VideoPlayerView: View {
-    public let video: Video
+public struct UploadVideoView: View {
     @Environment(\.presentationMode) var presentationMode
-    
-    public init(video: Video) {
-        self.video = video
+    @ObservedObject var viewModel: VideoViewModel
+
+    @State private var title: String = ""
+    @State private var description: String = ""
+    @State private var videoUrl: String = ""
+    @State private var thumbnailUrl: String = ""
+    @State private var isSubmitting: Bool = false
+
+    public init(viewModel: VideoViewModel) {
+        self.viewModel = viewModel
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            if let url = URL(string: video.videoUrl) {
-                VideoPlayer(player: AVPlayer(url: url))
-                    .frame(height: 240)
-            } else {
-                Rectangle()
-                    .fill(Color.black)
-                    .frame(height: 240)
-                    .overlay(Text("Видео недоступно").foregroundColor(.white))
-            }
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(video.title)
-                        .font(.system(size: 18, weight: .bold))
-                    
-                    HStack(spacing: 12) {
-                        Text("\(video.viewsCount) просмотров")
-                        Text("•")
-                        Text(video.createdAtFormatted)
-                    }
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    
-                    Divider()
-                    
-                    HStack(spacing: 12) {
-                        AvatarView(urlString: video.author.avatarUrl, size: 40)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(video.author.fullName)
-                                .font(.system(size: 15, weight: .bold))
-                            Text("Автор видео")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                    
-                    Text(video.description)
-                        .font(.system(size: 14))
-                        .foregroundColor(.primary)
-                        .padding(.top, 4)
+        NavigationView {
+            Form {
+                Section(header: Text("Информация о видео")) {
+                    TextField("Название видео", text: $title)
+                    TextField("Описание видео", text: $description)
                 }
-                .padding(16)
+
+                Section(header: Text("Видеофайл (MP4, MOV, AVI)")) {
+                    TextField("URL видеофайла (например: http://.../video.mp4)", text: $videoUrl)
+                        .autocapitalization(.none)
+                }
+
+                Section(header: Text("Превью / Обложка видео")) {
+                    TextField("URL картинки превью", text: $thumbnailUrl)
+                        .autocapitalization(.none)
+                }
+            }
+            .navigationBarTitle("Загрузить видео", displayMode: .inline)
+            .navigationBarItems(
+                leading: Button("Отмена") { presentationMode.wrappedValue.dismiss() },
+                trailing: Button("Загрузить") {
+                    Task {
+                        isSubmitting = true
+                        let success = await viewModel.uploadNewVideo(title: title, description: description, videoUrl: videoUrl, thumbnailUrl: thumbnailUrl)
+                        isSubmitting = false
+                        if success {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                }
+                .font(.system(size: 16, weight: .bold))
+                .disabled(title.isEmpty || videoUrl.isEmpty || isSubmitting)
+            )
+        }
+    }
+}
+
+public class VideoViewModel: ObservableObject {
+    @Published public var videos: [Video] = []
+    @Published public var isLoading: Bool = false
+
+    public init() {
+        loadVideos()
+    }
+
+    public func loadVideos() {
+        self.isLoading = true
+        Task {
+            do {
+                let fetchedVideos: [Video] = try await NetworkManager.shared.request(endpoint: "videos.php")
+                await MainActor.run {
+                    self.videos = fetchedVideos
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run { self.isLoading = false }
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    public func uploadNewVideo(title: String, description: String, videoUrl: String, thumbnailUrl: String) async -> Bool {
+        let body: [String: Any] = [
+            "title": title,
+            "description": description,
+            "video_url": videoUrl,
+            "thumbnail_url": thumbnailUrl
+        ]
+        
+        do {
+            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "video_upload.php", method: "POST", body: body)
+            await MainActor.run {
+                loadVideos()
+            }
+            return true
+        } catch {
+            return false
+        }
     }
 }
 
 public struct VideoCatalogView: View {
     @StateObject private var viewModel = VideoViewModel()
-    
+    @State private var showUploadModal: Bool = false
+
     public init() {}
 
     public var body: some View {
         NavigationView {
             ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(viewModel.videos) { video in
-                        NavigationLink(destination: VideoPlayerView(video: video)) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Thumbnail with Duration Badge
-                                ZStack(alignment: .bottomTrailing) {
-                                    if #available(iOS 15.0, *) {
-                                        AsyncImage(url: URL(string: video.thumbnailUrl)) { img in
-                                            img.resizable().scaledToFill()
-                                        } placeholder: {
-                                            Rectangle().fill(Color.gray.opacity(0.3))
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Видеокаталог")
+                            .font(.system(size: 20, weight: .bold))
+                        Spacer()
+                        Button("+ Загрузить видео") {
+                            showUploadModal = true
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.blue)
+                    }
+                    .padding(.horizontal, 16)
+
+                    if viewModel.videos.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "video.badge.plus")
+                                .font(.system(size: 48))
+                                .foregroundColor(.blue)
+                            Text("Пока нет загруженных видео")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Нажмите '+ Загрузить видео', чтобы добавить первый видеоролик в сеть!")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(40)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        LazyVStack(spacing: 20) {
+                            ForEach(viewModel.videos) { video in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    ZStack(alignment: .bottomRight) {
+                                        if let url = URL(string: video.thumbnailUrl) {
+                                            if #available(iOS 15.0, *) {
+                                                AsyncImage(url: url) { img in
+                                                    img.resizable().scaledToFill()
+                                                } placeholder: {
+                                                    Rectangle().fill(Color.gray.opacity(0.3))
+                                                }
+                                                .frame(height: 200)
+                                                .cornerRadius(12)
+                                            } else {
+                                                Rectangle().fill(Color.blue.opacity(0.2))
+                                                    .frame(height: 200)
+                                                    .cornerRadius(12)
+                                            }
                                         }
-                                        .frame(height: 200)
-                                        .clipped()
-                                        .cornerRadius(12)
-                                    } else {
-                                        Rectangle()
-                                            .fill(Color.gray.opacity(0.3))
-                                            .frame(height: 200)
-                                            .cornerRadius(12)
+
+                                        Text(video.durationFormatted)
+                                            .font(.system(size: 12, weight: .bold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.black.opacity(0.7))
+                                            .foregroundColor(.white)
+                                            .cornerRadius(6)
+                                            .padding(8)
                                     }
-                                    
-                                    Text(video.durationFormatted)
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 3)
-                                        .background(Color.black.opacity(0.8))
-                                        .cornerRadius(4)
-                                        .padding(8)
-                                }
-                                
-                                HStack(alignment: .top, spacing: 10) {
-                                    AvatarView(urlString: video.author.avatarUrl, size: 36)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(video.title)
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.primary)
-                                            .lineLimit(2)
-                                            .multilineTextAlignment(.leading)
-                                        
-                                        HStack(spacing: 6) {
-                                            Text(video.author.fullName)
-                                            Text("•")
-                                            Text("\(video.viewsCount) просмотров")
+
+                                    HStack(alignment: .top, spacing: 12) {
+                                        AvatarView(user: video.author, size: 40)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(video.title)
+                                                .font(.system(size: 16, weight: .bold))
+                                                .lineLimit(2)
+
+                                            Text("\(video.author.fullName) • \(video.viewsCount) просмотров • \(video.createdAtFormatted)")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.secondary)
                                         }
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
                                     }
                                 }
+                                .padding(.horizontal, 16)
                             }
                         }
                     }
                 }
-                .padding(12)
-                .padding(.bottom, 80)
+                .padding(.vertical, 16)
             }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationBarTitle("Видео")
+            .navigationBarTitle("Видео", displayMode: .inline)
+            .sheet(isPresented: $showUploadModal) {
+                UploadVideoView(viewModel: viewModel)
+            }
         }
     }
 }
