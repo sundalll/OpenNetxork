@@ -25,7 +25,7 @@ public struct LyricsView: View {
             Divider()
 
             ScrollView {
-                Text(track.lyrics ?? "Текст для этой песни пока не добавлен.")
+                Text(track.lyrics ?? "Текст для этой песни не добавлен.")
                     .font(.system(size: 17, weight: .medium, design: .rounded))
                     .lineSpacing(10)
                     .multilineTextAlignment(.center)
@@ -35,6 +35,60 @@ public struct LyricsView: View {
             Spacer()
         }
         .background(Color(UIColor.systemBackground).ignoresSafeArea())
+    }
+}
+
+public struct UploadTrackView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @ObservedObject var viewModel: MusicViewModel
+
+    @State private var title: String = ""
+    @State private var artist: String = ""
+    @State private var album: String = ""
+    @State private var audioUrl: String = ""
+    @State private var coverUrl: String = ""
+    @State private var isSubmitting: Bool = false
+
+    public init(viewModel: MusicViewModel) {
+        self.viewModel = viewModel
+    }
+
+    public var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Информация о треке")) {
+                    TextField("Название трека (например: Moonlight)", text: $title)
+                    TextField("Исполнитель / Автор (например: Автор)", text: $artist)
+                    TextField("Альбом (необязательно)", text: $album)
+                }
+
+                Section(header: Text("Файл музыки (MP3, WAV, FLAC)")) {
+                    TextField("URL аудиофайла (например: http://.../song.mp3)", text: $audioUrl)
+                        .autocapitalization(.none)
+                }
+
+                Section(header: Text("Обложка трека")) {
+                    TextField("URL обложки (например: http://.../cover.jpg)", text: $coverUrl)
+                        .autocapitalization(.none)
+                }
+            }
+            .navigationBarTitle("Загрузить трек", displayMode: .inline)
+            .navigationBarItems(
+                leading: Button("Отмена") { presentationMode.wrappedValue.dismiss() },
+                trailing: Button("Сохранить") {
+                    Task {
+                        isSubmitting = true
+                        let success = await viewModel.uploadNewTrack(title: title, artist: artist, album: album, audioUrl: audioUrl, coverUrl: coverUrl)
+                        isSubmitting = false
+                        if success {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                }
+                .font(.system(size: 16, weight: .bold))
+                .disabled(title.isEmpty || artist.isEmpty || audioUrl.isEmpty || isSubmitting)
+            )
+        }
     }
 }
 
@@ -93,14 +147,10 @@ public struct MusicPlayerView: View {
                     .font(.system(size: 16))
                     .foregroundColor(.secondary)
                 
-                if let freq = track.frequencyFM {
-                    Text(freq)
-                        .font(.system(size: 12, weight: .bold))
+                if let album = track.albumName {
+                    Text("Альбом: \(album)")
+                        .font(.system(size: 13))
                         .foregroundColor(.blue)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.blue.opacity(0.15))
-                        .cornerRadius(6)
                 }
             }
             .padding(.horizontal, 24)
@@ -125,7 +175,7 @@ public struct MusicPlayerView: View {
             }
             .padding(.horizontal, 32)
 
-            // Controls & Lyrics Trigger
+            // Controls & Lyrics
             HStack(spacing: 36) {
                 Button(action: {
                     showLyrics = true
@@ -179,119 +229,11 @@ public struct MusicPlayerView: View {
     }
 }
 
-public struct UberRadioView: View {
-    @ObservedObject var viewModel: MusicViewModel
-    @ObservedObject private var playerManager = AudioPlayerManager.shared
-    
-    public init(viewModel: MusicViewModel) {
-        self.viewModel = viewModel
-    }
-
-    public var body: some View {
-        VStack(spacing: 20) {
-            // Radio Header Visualizer
-            VStack(spacing: 8) {
-                Text("UBER RADIO FM")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.blue)
-                    .tracking(2)
-                
-                Text(String(format: "%.1f FM", viewModel.currentFrequency))
-                    .font(.system(size: 44, weight: .black, design: .monospaced))
-                    .foregroundColor(.primary)
-                
-                HStack(spacing: 4) {
-                    ForEach(0..<16, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(i % 3 == 0 ? Color.blue : Color.gray.opacity(0.4))
-                            .frame(width: 4, height: CGFloat.random(in: 12...36))
-                    }
-                }
-                .frame(height: 40)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity)
-            .background(Color(UIColor.secondarySystemGroupedBackground))
-            .cornerRadius(16)
-
-            // Frequency Slider / Tuner
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Тюнер частот FM")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.secondary)
-
-                Slider(value: $viewModel.currentFrequency, in: 87.5...108.0, step: 0.1)
-                    .accentColor(.blue)
-
-                HStack {
-                    Text("87.5 FM")
-                    Spacer()
-                    Text("108.0 FM")
-                }
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            }
-
-            // Radio Stations Presets List
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Станции прямого эфира")
-                    .font(.system(size: 15, weight: .bold))
-
-                ForEach(viewModel.radioStations) { station in
-                    HStack(spacing: 12) {
-                        Image(systemName: "radio.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.blue)
-                            .frame(width: 42, height: 42)
-                            .background(Color.blue.opacity(0.15))
-                            .cornerRadius(10)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text(station.name)
-                                    .font(.system(size: 15, weight: .bold))
-                                Spacer()
-                                Text(station.frequencyText)
-                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.blue)
-                            }
-                            Text(station.genre)
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Button(action: {
-                            viewModel.currentFrequency = station.frequency
-                            let track = Track(
-                                id: station.id + 1000,
-                                title: station.name,
-                                artist: station.genre,
-                                durationSeconds: 0,
-                                coverUrl: station.coverUrl,
-                                audioUrl: station.streamUrl,
-                                frequencyFM: station.frequencyText
-                            )
-                            playerManager.play(track: track)
-                        }) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .padding(10)
-                    .background(Color(UIColor.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                }
-            }
-        }
-        .padding(16)
-    }
-}
-
 public struct MusicView: View {
     @StateObject private var viewModel = MusicViewModel()
     @ObservedObject private var playerManager = AudioPlayerManager.shared
     @State private var selectedSegment: Int = 0
+    @State private var showUploadModal: Bool = false
     @State private var showCreatePlaylistModal: Bool = false
     @State private var newPlaylistName: String = ""
     @State private var newPlaylistDesc: String = ""
@@ -301,118 +243,123 @@ public struct MusicView: View {
     public var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Segmented Picker (Музыка / Uber Радио / Альбомы / Плейлисты)
+                // Segmented Picker (Треки / Альбомы / Плейлисты)
                 Picker("", selection: $selectedSegment) {
-                    Text("Музыка").tag(0)
-                    Text("Uber FM 📻").tag(1)
-                    Text("Альбомы").tag(2)
-                    Text("Плейлисты").tag(3)
+                    Text("Все треки").tag(0)
+                    Text("Альбомы").tag(1)
+                    Text("Плейлисты").tag(2)
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
 
                 if selectedSegment == 0 {
-                    // Music Tracks List
+                    // Tracks List
                     List {
-                        Section(header: Text("Треки & Музыка")) {
-                            ForEach(viewModel.tracks) { track in
-                                HStack(spacing: 12) {
-                                    if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
-                                        if #available(iOS 15.0, *) {
-                                            AsyncImage(url: url) { img in
-                                                img.resizable().scaledToFill()
-                                            } placeholder: {
-                                                Color.gray.opacity(0.3)
+                        Section(header: HStack {
+                            Text("Музыка (MP3, WAV, FLAC)")
+                            Spacer()
+                            Button("+ Загрузить трек") {
+                                showUploadModal = true
+                            }
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.blue)
+                        }) {
+                            if viewModel.tracks.isEmpty {
+                                Text("Пока нет загруженных треков. Нажмите '+ Загрузить трек', чтобы добавить первый трек!")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14))
+                                    .padding(.vertical, 12)
+                            } else {
+                                ForEach(viewModel.tracks) { track in
+                                    HStack(spacing: 12) {
+                                        if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
+                                            if #available(iOS 15.0, *) {
+                                                AsyncImage(url: url) { img in
+                                                    img.resizable().scaledToFill()
+                                                } placeholder: {
+                                                    Color.gray.opacity(0.3)
+                                                }
+                                                .frame(width: 48, height: 48)
+                                                .cornerRadius(8)
+                                            } else {
+                                                Image(systemName: "music.note")
+                                                    .frame(width: 48, height: 48)
+                                                    .background(Color.blue.opacity(0.2))
+                                                    .cornerRadius(8)
                                             }
-                                            .frame(width: 48, height: 48)
-                                            .cornerRadius(8)
                                         } else {
                                             Image(systemName: "music.note")
                                                 .frame(width: 48, height: 48)
                                                 .background(Color.blue.opacity(0.2))
                                                 .cornerRadius(8)
                                         }
-                                    } else {
-                                        Image(systemName: "music.note")
-                                            .frame(width: 48, height: 48)
-                                            .background(Color.blue.opacity(0.2))
-                                            .cornerRadius(8)
-                                    }
 
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        HStack(spacing: 4) {
+                                        VStack(alignment: .leading, spacing: 3) {
                                             Text(track.title)
                                                 .font(.system(size: 15, weight: .semibold))
-                                            if track.explicit {
-                                                Text("E")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 2)
-                                                    .background(Color.secondary.opacity(0.2))
-                                                    .cornerRadius(4)
-                                            }
+                                            Text(track.artist)
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.secondary)
                                         }
-                                        Text(track.artist)
+
+                                        Spacer()
+
+                                        Text(track.durationFormatted)
                                             .font(.system(size: 13))
                                             .foregroundColor(.secondary)
+
+                                        Button(action: {
+                                            viewModel.toggleLike(track: track)
+                                        }) {
+                                            Image(systemName: track.isLiked ? "heart.fill" : "heart")
+                                                .foregroundColor(track.isLiked ? .red : .gray)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
-
-                                    Spacer()
-
-                                    Text(track.durationFormatted)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.secondary)
-
-                                    Button(action: {
-                                        viewModel.toggleLike(track: track)
-                                    }) {
-                                        Image(systemName: track.isLiked ? "heart.fill" : "heart")
-                                            .foregroundColor(track.isLiked ? .red : .gray)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        playerManager.play(track: track)
                                     }
-                                    .buttonStyle(PlainButtonStyle())
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    playerManager.play(track: track)
                                 }
                             }
                         }
                     }
                     .listStyle(InsetGroupedListStyle())
                 } else if selectedSegment == 1 {
-                    // Uber Radio Tuner View
-                    ScrollView {
-                        UberRadioView(viewModel: viewModel)
-                            .padding(.bottom, 80)
-                    }
-                } else if selectedSegment == 2 {
                     // Albums View
                     List {
                         Section(header: Text("Музыкальные Альбомы")) {
-                            ForEach(viewModel.albums) { album in
-                                HStack(spacing: 14) {
-                                    Image(systemName: "square.stack.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.purple)
-                                        .frame(width: 52, height: 52)
-                                        .background(Color.purple.opacity(0.15))
-                                        .cornerRadius(10)
+                            if viewModel.albums.isEmpty {
+                                Text("Альбомы отсутствуют. Загрузите треки с указанием альбома!")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14))
+                                    .padding(.vertical, 12)
+                            } else {
+                                ForEach(viewModel.albums) { album in
+                                    HStack(spacing: 14) {
+                                        Image(systemName: "square.stack.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.purple)
+                                            .frame(width: 52, height: 52)
+                                            .background(Color.purple.opacity(0.15))
+                                            .cornerRadius(10)
 
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(album.title)
-                                            .font(.system(size: 16, weight: .bold))
-                                        Text("\(album.artist) • \(album.releaseYear)")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(album.title)
+                                                .font(.system(size: 16, weight: .bold))
+                                            Text("\(album.artist) • \(album.releaseYear)")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.secondary)
+                                        }
                                     }
+                                    .padding(.vertical, 4)
                                 }
-                                .padding(.vertical, 4)
                             }
                         }
                     }
                     .listStyle(InsetGroupedListStyle())
-                } else if selectedSegment == 3 {
+                } else if selectedSegment == 2 {
                     // Playlists View
                     List {
                         Section(header: HStack {
@@ -447,7 +394,10 @@ public struct MusicView: View {
                     .listStyle(InsetGroupedListStyle())
                 }
             }
-            .navigationBarTitle("Музыка & Радио")
+            .navigationBarTitle("Музыка")
+            .sheet(isPresented: $showUploadModal) {
+                UploadTrackView(viewModel: viewModel)
+            }
             .sheet(isPresented: $showCreatePlaylistModal) {
                 NavigationView {
                     Form {

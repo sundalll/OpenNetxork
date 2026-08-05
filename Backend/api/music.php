@@ -3,7 +3,7 @@ require_once __DIR__ . '/../db.php';
 
 $pdo = Database::getInstance();
 
-// Список музыки
+// Список загруженных музыкальных треков из БД
 $stmt = $pdo->prepare("SELECT id, title, artist, duration_seconds, cover_url, audio_url, explicit FROM tracks ORDER BY id DESC");
 $stmt->execute();
 $tracks = $stmt->fetchAll();
@@ -21,4 +21,4 @@ $result = array_map(function($track) {
     ];
 }, $tracks);
 
-Database::sendResponse(true, "Music catalog fetched", $result);
+Database::sendResponse(true, "Реальные треки загружены", $result);

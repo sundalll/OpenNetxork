@@ -38,76 +38,57 @@ public class MusicViewModel: ObservableObject {
     @Published public var tracks: [Track] = []
     @Published public var albums: [Album] = []
     @Published public var playlists: [Playlist] = []
-    @Published public var radioStations: [RadioStation] = []
-    @Published public var currentFrequency: Double = 100.0
     @Published public var searchQuery: String = ""
     @Published public var isLoading: Bool = false
+    @Published public var uploadError: String? = nil
     
     public init() {
         loadMusicCatalog()
-        loadRadioStations()
         loadAlbumsAndPlaylists()
     }
     
     public func loadMusicCatalog() {
-        self.tracks = [
-            Track(
-                id: 1,
-                title: "ContrastFM — Прямой эфир (320 KBPS)",
-                artist: "Live Broadcast",
-                durationSeconds: 0,
-                coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "http://46.53.128.120/contrastfm",
-                isLiked: true,
-                lyrics: "[00:00.00] Прямой радиоэфир станции ContrastFM\n[00:05.00] Вещание в качестве 320 KBPS\n[00:10.00] Самая лучшая музыка и радио ток-шоу!",
-                frequencyFM: "100.0 FM"
-            ),
-            Track(
-                id: 2,
-                title: "Midnight City",
-                artist: "M83",
-                durationSeconds: 243,
-                coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                isLiked: true,
-                lyrics: "Waiting in a car\nWaiting for a ride in the dark\nThe night city is a vision\nLook at the lights, glowing in the night...",
-                albumName: "Hurry Up, We're Dreaming"
-            ),
-            Track(
-                id: 3,
-                title: "Starboy (Feat. Daft Punk)",
-                artist: "The Weeknd",
-                durationSeconds: 230,
-                coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                isLiked: false,
-                explicit: true,
-                lyrics: "I'm tryna put you in the worst mood, ah\nP1 cleaner than your church shoes, ah\nPoint made, n***a, with a broad stroke...",
-                albumName: "Starboy"
-            )
-        ]
+        self.isLoading = true
+        
+        // Загрузка реальных треков с сервера
+        Task {
+            do {
+                let fetchedTracks: [Track] = try await NetworkManager.shared.request(endpoint: "music.php")
+                await MainActor.run {
+                    self.tracks = fetchedTracks
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            }
+        }
     }
     
-    public func loadRadioStations() {
-        self.radioStations = [
-            RadioStation(id: 1, name: "ContrastFM Live", frequency: 100.0, genre: "EDM & Synth", streamUrl: "http://46.53.128.120/contrastfm", coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80"),
-            RadioStation(id: 2, name: "Tech Beats Radio", frequency: 101.5, genre: "Deep House", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80"),
-            RadioStation(id: 3, name: "RetroWave FM", frequency: 104.2, genre: "80s & Synthwave", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80"),
-            RadioStation(id: 4, name: "Chillout Wave", frequency: 107.0, genre: "Lofi & Chill", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80")
-        ]
+    public func uploadNewTrack(title: String, artist: String, album: String, audioUrl: String, coverUrl: String) async -> Bool {
+        guard !title.isEmpty, !artist.isEmpty, !audioUrl.isEmpty else { return false }
+        
+        let newTrack = Track(
+            id: Int.random(in: 1000...9999),
+            title: title,
+            artist: artist,
+            durationSeconds: 180,
+            coverUrl: coverUrl.isEmpty ? nil : coverUrl,
+            audioUrl: audioUrl,
+            albumName: album.isEmpty ? nil : album
+        )
+        
+        await MainActor.run {
+            self.tracks.insert(newTrack, at: 0)
+        }
+        return true
     }
     
     public func loadAlbumsAndPlaylists() {
-        let sampleTrack = tracks.first ?? Track(id: 1, title: "Midnight City", artist: "M83", durationSeconds: 243, audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
-        
-        self.albums = [
-            Album(id: 1, title: "Hurry Up, We're Dreaming", artist: "M83", coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80", releaseYear: "2011", tracks: [sampleTrack]),
-            Album(id: 2, title: "Starboy", artist: "The Weeknd", coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80", releaseYear: "2016", tracks: [sampleTrack])
-        ]
-        
+        self.albums = []
         self.playlists = [
-            Playlist(id: 1, name: "Избранное 💖", description: "Мои любимые треки", coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80", tracks: tracks),
-            Playlist(id: 2, name: "Ночные Поездки 🌙", description: "Музыка для дороги и атмосферы", coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80", tracks: tracks)
+            Playlist(id: 1, name: "Моя медиатека 💖", description: "Загруженная музыка", coverUrl: nil, tracks: tracks)
         ]
     }
     
@@ -116,7 +97,7 @@ public class MusicViewModel: ObservableObject {
             id: Int.random(in: 100...999),
             name: name,
             description: description,
-            coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
+            coverUrl: nil,
             tracks: []
         )
         playlists.append(newPlaylist)
@@ -127,7 +108,7 @@ public class MusicViewModel: ObservableObject {
             id: Int.random(in: 100...999),
             title: title,
             artist: artist,
-            coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
+            coverUrl: nil,
             releaseYear: "2026",
             tracks: []
         )

@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS `tracks` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `title` VARCHAR(150) NOT NULL,
     `artist` VARCHAR(150) NOT NULL,
-    `duration_seconds` INT NOT NULL,
+    `duration_seconds` INT NOT NULL DEFAULT 180,
     `cover_url` TEXT NULL,
     `audio_url` TEXT NOT NULL,
     `explicit` TINYINT(1) DEFAULT 0,
@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS `channel_subscribers` (
 -- ==========================================
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `first_name`, `last_name`, `avatar_url`, `status_text`, `is_verified`, `followers_count`, `following_count`) VALUES
-(1, 'durov', 'durov@telegram.org', '$2y$10$e0MYzXyjpJS7Pd0RVvHwHeFz2WdI8gX5Q2R7C1JvYJ8uYJ8uYJ8u', 'Павел', 'Дуров', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80', 'Верните стену! 🚀 Свобода общения.', 1, 1420500, 12);
+(1, 'user', 'user@opennetwork.app', '$2y$10$e0MYzXyjpJS7Pd0RVvHwHeFz2WdI8gX5Q2R7C1JvYJ8uYJ8uYJ8u', 'Пользователь', 'Сети', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80', 'Свобода общения и музыка 🚀', 1, 1420, 12);
 
 INSERT INTO `tracks` (`id`, `title`, `artist`, `duration_seconds`, `cover_url`, `audio_url`, `explicit`) VALUES
 (1, 'Midnight City', 'M83', 243, 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', 0),
