@@ -33,6 +33,7 @@ public class NetworkManager: ObservableObject {
         
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         if let token = authToken {
@@ -82,7 +83,7 @@ public class NetworkManager: ObservableObject {
     }
 
     public func uploadImage(uiImage: UIImage) async throws -> String {
-        guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else {
+        guard let imageData = uiImage.jpegData(compressionQuality: 0.7) else {
             throw NetworkError.decodingError("Ошибка сжатия изображения")
         }
         let base64String = imageData.base64EncodedString()
@@ -90,9 +91,23 @@ public class NetworkManager: ObservableObject {
             "base64_data": base64String,
             "extension": "jpg"
         ]
-        let response: APIResponse<[String: String]> = try await request(endpoint: "upload.php", method: "POST", jsonBody: body)
-        if response.success, let url = response.data?["url"] {
-            return url
+        
+        guard let url = URL(string: "\(baseURL)/upload.php") else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let decoder = JSONDecoder()
+        let response = try decoder.decode(APIResponse<[String: String]>.self, from: data)
+
+        if response.success, let fileUrl = response.data?["url"] {
+            return fileUrl
         } else {
             throw NetworkError.serverError(response.message ?? "Ошибка загрузки фото")
         }
@@ -106,7 +121,7 @@ public class NetworkManager: ObservableObject {
 
         let fileData = try Data(contentsOf: fileURL)
         let filename = fileURL.lastPathComponent
-        let mimeType = "audio/mpeg"
+        let mimeType = "application/octet-stream"
 
         let boundary = "Boundary-\(UUID().uuidString)"
         guard let url = URL(string: "\(baseURL)/upload.php") else {
@@ -115,6 +130,7 @@ public class NetworkManager: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 300
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
@@ -133,7 +149,7 @@ public class NetworkManager: ObservableObject {
         if response.success, let fileUrl = response.data?["url"] {
             return fileUrl
         } else {
-            throw NetworkError.serverError(response.message ?? "Ошибка загрузки аудиофайла")
+            throw NetworkError.serverError(response.message ?? "Ошибка загрузки файла")
         }
     }
 }
