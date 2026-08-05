@@ -20,6 +20,24 @@
 	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleIconFiles</key>
+	<array>
+		<string>murlogo.png</string>
+		<string>AppIcon60x60</string>
+	</array>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>murlogo.png</string>
+				<string>AppIcon60x60</string>
+			</array>
+			<key>UIPrerenderedIcon</key>
+			<true/>
+		</dict>
+	</dict>
 	<key>MinimumOSVersion</key>
 	<string>14.0</string>
 	<key>LSRequiresIPhoneOS</key>

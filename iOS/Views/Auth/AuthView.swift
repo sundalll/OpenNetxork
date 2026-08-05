@@ -126,17 +126,12 @@ public struct AuthView: View {
                         } placeholder: {
                             Color.clear
                         }
-                        .frame(width: 100, height: 100)
-                        .cornerRadius(20)
+                        .frame(maxHeight: 90)
                     }
                 }
 
-                Text("Murlika")
-                    .font(.system(size: 36, weight: .black))
-                    .foregroundColor(.blue)
-
                 Text(isRegisterMode ? "Регистрация нового аккаунта" : "Войдите в свой профиль")
-                    .font(.system(size: 15))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.secondary)
             }
 
