@@ -1,9 +1,12 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && strtoupper($_SERVER['REQUEST_METHOD']) === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -11,14 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../db.php';
 
 $pdo = Database::getInstance();
-$method = $_SERVER['REQUEST_METHOD'];
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 if ($method === 'GET') {
     $userId = (int)($_GET['user_id'] ?? 1);
     $channelId = (int)($_GET['channel_id'] ?? 0);
 
     if ($channelId > 0) {
-        // Детали одного канала
         $stmt = $pdo->prepare("SELECT * FROM channels WHERE id = ?");
         $stmt->execute([$channelId]);
         $channel = $stmt->fetch();
@@ -27,12 +29,10 @@ if ($method === 'GET') {
             Database::sendResponse(false, "Канал не найден", null, 404);
         }
 
-        // Подписка текущего пользователя
         $subStmt = $pdo->prepare("SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ?");
         $subStmt->execute([$channelId, $userId]);
         $isSubscribed = (bool)$subStmt->fetch();
 
-        // Посты канала
         $postsStmt = $pdo->prepare("SELECT * FROM channel_posts WHERE channel_id = ? ORDER BY id DESC");
         $postsStmt->execute([$channelId]);
         $posts = $postsStmt->fetchAll();
@@ -51,7 +51,7 @@ if ($method === 'GET') {
 
         $result = [
             'id' => (int)$channel['id'],
-            'user_id' => (int)$channel['user_id'],
+            'user_id' => (int)($channel['owner_id'] ?? 1),
             'name' => $channel['name'],
             'description' => $channel['description'] ?? '',
             'avatar_url' => $channel['avatar_url'],
@@ -65,7 +65,6 @@ if ($method === 'GET') {
 
         Database::sendResponse(true, "Данные канала получены", $result);
     } else {
-        // Список всех каналов
         $stmt = $pdo->prepare("
             SELECT c.*,
                    IF(cs.user_id IS NOT NULL, 1, 0) as is_subscribed
@@ -79,7 +78,7 @@ if ($method === 'GET') {
         $result = array_map(function($c) {
             return [
                 'id' => (int)$c['id'],
-                'user_id' => (int)$c['user_id'],
+                'user_id' => (int)($c['owner_id'] ?? 1),
                 'name' => $c['name'],
                 'description' => $c['description'] ?? '',
                 'avatar_url' => $c['avatar_url'],
@@ -94,41 +93,50 @@ if ($method === 'GET') {
         Database::sendResponse(true, "Список каналов получен", $result);
     }
 
-} elseif ($method === 'POST') {
+} else {
     $rawInput = file_get_contents('php://input');
     $input = json_decode($rawInput, true);
 
-    if (!is_array($input)) {
+    if (!is_array($input) || empty($input)) {
         $input = $_POST;
     }
 
-    $action = $input['action'] ?? 'subscribe';
-    $userId = (int)($input['user_id'] ?? 1);
-    $channelId = (int)($input['channel_id'] ?? 0);
+    $action = $input['action'] ?? $_GET['action'] ?? 'create';
+    $userId = (int)($input['user_id'] ?? $_GET['user_id'] ?? 1);
+    $channelId = (int)($input['channel_id'] ?? $_GET['channel_id'] ?? 0);
+
+    // Валидация подбора действующего пользователя
+    $userCheck = $pdo->prepare("SELECT id FROM users WHERE id = ?");
+    $userCheck->execute([$userId]);
+    if (!$userCheck->fetch()) {
+        $firstUser = $pdo->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetch();
+        if ($firstUser) {
+            $userId = (int)$firstUser['id'];
+        }
+    }
 
     if ($action === 'create') {
-        $name = trim($input['name'] ?? '');
-        $description = trim($input['description'] ?? '');
-        $category = trim($input['category'] ?? 'Паблик');
-        $avatarUrl = trim($input['avatar_url'] ?? '');
-        $coverUrl = trim($input['cover_url'] ?? '');
+        $name = trim($input['name'] ?? $_GET['name'] ?? '');
+        $description = trim($input['description'] ?? $_GET['description'] ?? '');
+        $category = trim($input['category'] ?? $_GET['category'] ?? 'Паблик');
+        $avatarUrl = trim($input['avatar_url'] ?? $_GET['avatar_url'] ?? '');
+        $coverUrl = trim($input['cover_url'] ?? $_GET['cover_url'] ?? '');
 
         if (empty($name)) {
             Database::sendResponse(false, "Укажите название канала", null, 400);
         }
 
         if (empty($avatarUrl)) {
-            $avatarUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80";
+            $avatarUrl = "http://46.53.128.120/Logo/murlika.png";
         }
 
         $stmt = $pdo->prepare("
-            INSERT INTO channels (user_id, name, description, category, avatar_url, cover_url, subscribers_count)
+            INSERT INTO channels (owner_id, name, description, category, avatar_url, cover_url, subscribers_count)
             VALUES (?, ?, ?, ?, ?, ?, 1)
         ");
         $stmt->execute([$userId, $name, $description, $category, $avatarUrl, $coverUrl]);
         $newChannelId = (int)$pdo->lastInsertId();
 
-        // Автор сразу становится подписчиком своего канала
         $subStmt = $pdo->prepare("INSERT IGNORE INTO channel_subscribers (channel_id, user_id) VALUES (?, ?)");
         $subStmt->execute([$newChannelId, $userId]);
 
@@ -152,13 +160,11 @@ if ($method === 'GET') {
             Database::sendResponse(false, "Некорректный ID канала", null, 400);
         }
 
-        // Проверка подписки
         $check = $pdo->prepare("SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ?");
-        $check.execute([$channelId, $userId]);
+        $check->execute([$channelId, $userId]);
         $exists = $check->fetch();
 
         if ($exists) {
-            // Отписка
             $unsub = $pdo->prepare("DELETE FROM channel_subscribers WHERE channel_id = ? AND user_id = ?");
             $unsub->execute([$channelId, $userId]);
 
@@ -167,9 +173,8 @@ if ($method === 'GET') {
 
             Database::sendResponse(true, "Вы отписались от канала", ['is_subscribed' => false]);
         } else {
-            // Подписка
             $sub = $pdo->prepare("INSERT INTO channel_subscribers (channel_id, user_id) VALUES (?, ?)");
-            $sub.execute([$channelId, $userId]);
+            $sub->execute([$channelId, $userId]);
 
             $inc = $pdo->prepare("UPDATE channels SET subscribers_count = subscribers_count + 1 WHERE id = ?");
             $inc->execute([$channelId]);
@@ -202,3 +207,5 @@ if ($method === 'GET') {
         Database::sendResponse(true, "Запись опубликована в канале!", $postData);
     }
 }
+
+Database::sendResponse(false, "Неизвестное действие", null, 400);

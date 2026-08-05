@@ -19,19 +19,27 @@ public struct AvatarView: View {
     
     public var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            if let urlString = urlString, let url = URL(string: urlString) {
-                if #available(iOS 15.0, *) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
+            Group {
+                if let urlString = urlString, let url = URL(string: urlString) {
+                    if #available(iOS 15.0, *) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .foregroundColor(.gray.opacity(0.4))
+                        }
+                        .frame(width: size, height: size)
+                        .clipShape(Circle())
+                    } else {
                         Image(systemName: "person.crop.circle.fill")
                             .resizable()
-                            .foregroundColor(.gray.opacity(0.4))
+                            .frame(width: size, height: size)
+                            .foregroundColor(.blue.opacity(0.6))
+                            .clipShape(Circle())
                     }
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .resizable()
@@ -39,22 +47,18 @@ public struct AvatarView: View {
                         .foregroundColor(.blue.opacity(0.6))
                         .clipShape(Circle())
                 }
-            } else {
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .frame(width: size, height: size)
-                    .foregroundColor(.blue.opacity(0.6))
-                    .clipShape(Circle())
             }
+            .zIndex(1)
             
             if isOnline {
                 Circle()
                     .fill(Color.green)
-                    .frame(width: max(12, size * 0.26), height: max(12, size * 0.26))
+                    .frame(width: max(12, size * 0.28), height: max(12, size * 0.28))
                     .overlay(
-                        Circle().stroke(Color(UIColor.systemBackground), lineWidth: 2.5)
+                        Circle().stroke(Color(UIColor.systemBackground), lineWidth: 3)
                     )
-                    .offset(x: 1, y: 1)
+                    .offset(x: 2, y: 2)
+                    .zIndex(10)
             }
         }
     }

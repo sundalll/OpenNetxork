@@ -97,6 +97,20 @@ public struct FeedView: View {
     public let currentUser: User
     
     @State private var showCreatePostModal: Bool = false
+    @State private var searchText: String = ""
+
+    var filteredPosts: [Post] {
+        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return feedViewModel.posts
+        } else {
+            let query = searchText.lowercased()
+            return feedViewModel.posts.filter {
+                $0.text.lowercased().contains(query) ||
+                $0.author.username.lowercased().contains(query) ||
+                $0.author.fullName.lowercased().contains(query)
+            }
+        }
+    }
     
     public init(feedViewModel: FeedViewModel, currentUser: User) {
         self.feedViewModel = feedViewModel
@@ -107,6 +121,19 @@ public struct FeedView: View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    // Global Search Bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                        TextField("Поиск по новостям, авторам, никнеймам...", text: $searchText)
+                            .autocapitalization(.none)
+                    }
+                    .padding(10)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+
                     // Create Post Trigger Bar
                     HStack(spacing: 12) {
                         AvatarView(urlString: currentUser.avatarUrl, size: 38)
@@ -125,22 +152,29 @@ public struct FeedView: View {
                     .background(Color(UIColor.systemBackground))
                     .cornerRadius(12)
                     .padding(.horizontal, 8)
-                    .padding(.top, 8)
+                    .padding(.vertical, 4)
 
                     // Feed Posts
-                    ForEach(feedViewModel.posts) { post in
-                        PostCardView(
-                            post: post,
-                            onLike: {
-                                feedViewModel.toggleLike(for: post)
-                            },
-                            onRepost: {
-                                feedViewModel.toggleRepost(for: post)
-                            },
-                            onComment: {
-                                // комментарии
-                            }
-                        )
+                    if filteredPosts.isEmpty {
+                        Text(searchText.isEmpty ? "В ленте пока нет публикаций. Напишите первую запись!" : "Ничего не найдено по запросу '\(searchText)'")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 14))
+                            .padding(24)
+                    } else {
+                        ForEach(filteredPosts) { post in
+                            PostCardView(
+                                post: post,
+                                onLike: {
+                                    feedViewModel.toggleLike(for: post)
+                                },
+                                onRepost: {
+                                    feedViewModel.toggleRepost(for: post)
+                                },
+                                onComment: {
+                                    // комментарии
+                                }
+                            )
+                        }
                     }
                 }
                 .padding(.bottom, 80)
