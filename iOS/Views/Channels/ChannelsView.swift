@@ -416,41 +416,69 @@ public struct ChannelDetailView: View {
 public struct ChannelsView: View {
     @StateObject private var viewModel = ChannelsViewModel()
     @State private var showCreateChannelModal: Bool = false
+    @State private var searchText: String = ""
+
+    var filteredChannels: [Channel] {
+        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return viewModel.channels
+        } else {
+            let query = searchText.lowercased()
+            return viewModel.channels.filter {
+                $0.name.lowercased().contains(query) ||
+                $0.description.lowercased().contains(query) ||
+                $0.category.lowercased().contains(query)
+            }
+        }
+    }
 
     public init() {}
 
     public var body: some View {
         NavigationView {
-            List {
-                Section(header: HStack {
-                    Text("Каналы & Паблики")
-                    Spacer()
-                    Button("+ Создать канал") {
-                        showCreateChannelModal = true
-                    }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.blue)
-                }) {
-                    if viewModel.channels.isEmpty {
-                        VStack(spacing: 12) {
-                            Text("Каналы пока не созданы.")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 15))
-                            
-                            Button(action: { showCreateChannelModal = true }) {
-                                Text("Создать первый канал")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(12)
-                            }
+            VStack(spacing: 0) {
+                // Search Bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    TextField("Поиск каналов и пабликов...", text: $searchText)
+                        .autocapitalization(.none)
+                }
+                .padding(10)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                List {
+                    Section(header: HStack {
+                        Text("Каналы & Паблики")
+                        Spacer()
+                        Button("+ Создать канал") {
+                            showCreateChannelModal = true
                         }
-                        .padding(.vertical, 24)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    } else {
-                        ForEach(viewModel.channels) { channel in
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.blue)
+                    }) {
+                        if filteredChannels.isEmpty {
+                            VStack(spacing: 12) {
+                                Text(searchText.isEmpty ? "Каналы пока не созданы." : "Каналы не найдены по запросу '\(searchText)'")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 15))
+                                
+                                Button(action: { showCreateChannelModal = true }) {
+                                    Text("Создать первый канал")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(12)
+                                }
+                            }
+                            .padding(.vertical, 24)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        } else {
+                            ForEach(filteredChannels) { channel in
                             NavigationLink(destination: ChannelDetailView(channel: channel, viewModel: viewModel)) {
                                 HStack(spacing: 12) {
                                     AvatarView(urlString: channel.avatarUrl, size: 52)
@@ -496,8 +524,8 @@ public struct ChannelsView: View {
                         }
                     }
                 }
+                .listStyle(InsetGroupedListStyle())
             }
-            .listStyle(InsetGroupedListStyle())
             .navigationBarTitle("Каналы")
             .sheet(isPresented: $showCreateChannelModal) {
                 CreateChannelView(viewModel: viewModel)

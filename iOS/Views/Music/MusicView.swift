@@ -47,8 +47,10 @@ public struct UploadTrackView: View {
     @State private var album: String = ""
     @State private var audioUrl: String = ""
     @State private var coverUrl: String = ""
+    @State private var showAudioPicker: Bool = false
     @State private var showCoverPicker: Bool = false
     @State private var coverImage: UIImage? = nil
+    @State private var isUploadingAudio: Bool = false
     @State private var isUploadingCover: Bool = false
     @State private var isSubmitting: Bool = false
 
@@ -65,9 +67,24 @@ public struct UploadTrackView: View {
                     TextField("Альбом (необязательно)", text: $album)
                 }
 
-                Section(header: Text("Файл музыки (MP3, WAV, FLAC)")) {
-                    TextField("URL аудиофайла (например: http://.../song.mp3)", text: $audioUrl)
-                        .autocapitalization(.none)
+                Section(header: Text("Файл музыки (выбор с телефона)")) {
+                    HStack {
+                        Button(action: { showAudioPicker = true }) {
+                            HStack {
+                                Image(systemName: "music.note")
+                                Text(audioUrl.isEmpty ? "Выбрать аудиофайл с телефона" : "Аудиофайл загружен ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingAudio { ProgressView() }
+                    }
+
+                    if !audioUrl.isEmpty {
+                        Text("Файл: \(audioUrl)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
 
                 Section(header: Text("Обложка трека (с телефона)")) {
@@ -81,9 +98,6 @@ public struct UploadTrackView: View {
                         }
                         if isUploadingCover { ProgressView() }
                     }
-
-                    TextField("Или введите URL обложки", text: $coverUrl)
-                        .autocapitalization(.none)
                 }
             }
             .navigationBarTitle("Загрузить трек", displayMode: .inline)
@@ -100,8 +114,19 @@ public struct UploadTrackView: View {
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
-                .disabled(title.isEmpty || artist.isEmpty || isSubmitting)
+                .disabled(title.isEmpty || artist.isEmpty || audioUrl.isEmpty || isSubmitting)
             )
+            .sheet(isPresented: $showAudioPicker) {
+                DocumentPicker { fileURL in
+                    Task {
+                        isUploadingAudio = true
+                        if let url = try? await NetworkManager.shared.uploadFile(fileURL: fileURL) {
+                            audioUrl = url
+                        }
+                        isUploadingAudio = false
+                    }
+                }
+            }
             .sheet(isPresented: $showCoverPicker) {
                 ImagePicker(selectedImage: $coverImage) { img in
                     Task {
@@ -262,12 +287,37 @@ public struct MusicView: View {
     @State private var showCreatePlaylistModal: Bool = false
     @State private var newPlaylistName: String = ""
     @State private var newPlaylistDesc: String = ""
+    @State private var searchText: String = ""
+
+    var filteredTracks: [Track] {
+        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return viewModel.tracks
+        } else {
+            let query = searchText.lowercased()
+            return viewModel.tracks.filter {
+                $0.title.lowercased().contains(query) || $0.artist.lowercased().contains(query)
+            }
+        }
+    }
 
     public init() {}
 
     public var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                // Search Bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    TextField("Поиск трека или исполнителя...", text: $searchText)
+                        .autocapitalization(.none)
+                }
+                .padding(10)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                
                 // Segmented Picker (Треки / Альбомы / Плейлисты)
                 Picker("", selection: $selectedSegment) {
                     Text("Все треки").tag(0)
@@ -290,13 +340,13 @@ public struct MusicView: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.blue)
                         }) {
-                            if viewModel.tracks.isEmpty {
-                                Text("Пока нет загруженных треков. Нажмите '+ Загрузить трек', чтобы добавить первый трек!")
+                            if filteredTracks.isEmpty {
+                                Text(searchText.isEmpty ? "Пока нет загруженных треков. Нажмите '+ Загрузить трек', чтобы добавить первый трек!" : "Ничего не найдено по запросу '\(searchText)'")
                                     .foregroundColor(.secondary)
                                     .font(.system(size: 14))
                                     .padding(.vertical, 12)
                             } else {
-                                ForEach(viewModel.tracks) { track in
+                                ForEach(filteredTracks) { track in
                                     HStack(spacing: 12) {
                                         if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
                                             if #available(iOS 15.0, *) {

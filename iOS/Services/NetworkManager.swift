@@ -97,4 +97,43 @@ public class NetworkManager: ObservableObject {
             throw NetworkError.serverError(response.message ?? "Ошибка загрузки фото")
         }
     }
+
+    public func uploadFile(fileURL: URL) async throws -> String {
+        let isAccessing = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if isAccessing { fileURL.stopAccessingSecurityScopedResource() }
+        }
+
+        let fileData = try Data(contentsOf: fileURL)
+        let filename = fileURL.lastPathComponent
+        let mimeType = "audio/mpeg"
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        guard let url = URL(string: "\(baseURL)/upload.php") else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let decoder = JSONDecoder()
+        let response = try decoder.decode(APIResponse<[String: String]>.self, from: data)
+
+        if response.success, let fileUrl = response.data?["url"] {
+            return fileUrl
+        } else {
+            throw NetworkError.serverError(response.message ?? "Ошибка загрузки аудиофайла")
+        }
+    }
 }
