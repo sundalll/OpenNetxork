@@ -39,8 +39,12 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
     public var audioUrl: String
     public var isLiked: Bool
     public var explicit: Bool
+    public var lyrics: String?
+    public var albumName: String?
+    public var frequencyFM: String?
 
     public var durationFormatted: String {
+        if durationSeconds == 0 { return "LIVE" }
         let mins = durationSeconds / 60
         let secs = durationSeconds % 60
         return String(format: "%d:%02d", mins, secs)
@@ -55,9 +59,12 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
         case audioUrl = "audio_url"
         case isLiked = "is_liked"
         case explicit
+        case lyrics
+        case albumName = "album_name"
+        case frequencyFM = "frequency_fm"
     }
 
-    public init(id: Int, title: String, artist: String, durationSeconds: Int, coverUrl: String? = nil, audioUrl: String, isLiked: Bool = false, explicit: Bool = false) {
+    public init(id: Int, title: String, artist: String, durationSeconds: Int, coverUrl: String? = nil, audioUrl: String, isLiked: Bool = false, explicit: Bool = false, lyrics: String? = nil, albumName: String? = nil, frequencyFM: String? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -66,6 +73,76 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
         self.audioUrl = audioUrl
         self.isLiked = isLiked
         self.explicit = explicit
+        self.lyrics = lyrics
+        self.albumName = albumName
+        self.frequencyFM = frequencyFM
+    }
+}
+
+public struct Album: Identifiable, Codable, Equatable, Hashable {
+    public let id: Int
+    public var title: String
+    public var artist: String
+    public var coverUrl: String?
+    public var releaseYear: String
+    public var tracks: [Track]
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, artist, tracks
+        case coverUrl = "cover_url"
+        case releaseYear = "release_year"
+    }
+
+    public init(id: Int, title: String, artist: String, coverUrl: String? = nil, releaseYear: String = "2026", tracks: [Track] = []) {
+        self.id = id
+        self.title = title
+        self.artist = artist
+        self.coverUrl = coverUrl
+        self.releaseYear = releaseYear
+        self.tracks = tracks
+    }
+}
+
+public struct Playlist: Identifiable, Codable, Equatable, Hashable {
+    public let id: Int
+    public var name: String
+    public var description: String
+    public var coverUrl: String?
+    public var tracks: [Track]
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, tracks
+        case coverUrl = "cover_url"
+    }
+
+    public init(id: Int, name: String, description: String, coverUrl: String? = nil, tracks: [Track] = []) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.coverUrl = coverUrl
+        self.tracks = tracks
+    }
+}
+
+public struct RadioStation: Identifiable, Codable, Equatable, Hashable {
+    public let id: Int
+    public var name: String
+    public var frequency: Double
+    public var genre: String
+    public var streamUrl: String
+    public var coverUrl: String?
+    
+    public var frequencyText: String {
+        return String(format: "%.1f FM", frequency)
+    }
+
+    public init(id: Int, name: String, frequency: Double, genre: String, streamUrl: String, coverUrl: String? = nil) {
+        self.id = id
+        self.name = name
+        self.frequency = frequency
+        self.genre = genre
+        self.streamUrl = streamUrl
+        self.coverUrl = coverUrl
     }
 }
 

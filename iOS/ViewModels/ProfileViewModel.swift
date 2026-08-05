@@ -36,11 +36,17 @@ public class ProfileViewModel: ObservableObject {
 
 public class MusicViewModel: ObservableObject {
     @Published public var tracks: [Track] = []
+    @Published public var albums: [Album] = []
+    @Published public var playlists: [Playlist] = []
+    @Published public var radioStations: [RadioStation] = []
+    @Published public var currentFrequency: Double = 100.0
     @Published public var searchQuery: String = ""
     @Published public var isLoading: Bool = false
     
     public init() {
         loadMusicCatalog()
+        loadRadioStations()
+        loadAlbumsAndPlaylists()
     }
     
     public func loadMusicCatalog() {
@@ -52,7 +58,9 @@ public class MusicViewModel: ObservableObject {
                 durationSeconds: 0,
                 coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
                 audioUrl: "http://46.53.128.120/contrastfm",
-                isLiked: true
+                isLiked: true,
+                lyrics: "[00:00.00] Прямой радиоэфир станции ContrastFM\n[00:05.00] Вещание в качестве 320 KBPS\n[00:10.00] Самая лучшая музыка и радио ток-шоу!",
+                frequencyFM: "100.0 FM"
             ),
             Track(
                 id: 2,
@@ -61,7 +69,9 @@ public class MusicViewModel: ObservableObject {
                 durationSeconds: 243,
                 coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
                 audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                isLiked: true
+                isLiked: true,
+                lyrics: "Waiting in a car\nWaiting for a ride in the dark\nThe night city is a vision\nLook at the lights, glowing in the night...",
+                albumName: "Hurry Up, We're Dreaming"
             ),
             Track(
                 id: 3,
@@ -71,18 +81,57 @@ public class MusicViewModel: ObservableObject {
                 coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
                 audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
                 isLiked: false,
-                explicit: true
-            ),
-            Track(
-                id: 4,
-                title: "Blinding Lights",
-                artist: "The Weeknd",
-                durationSeconds: 200,
-                coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-                isLiked: true
+                explicit: true,
+                lyrics: "I'm tryna put you in the worst mood, ah\nP1 cleaner than your church shoes, ah\nPoint made, n***a, with a broad stroke...",
+                albumName: "Starboy"
             )
         ]
+    }
+    
+    public func loadRadioStations() {
+        self.radioStations = [
+            RadioStation(id: 1, name: "ContrastFM Live", frequency: 100.0, genre: "EDM & Synth", streamUrl: "http://46.53.128.120/contrastfm", coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80"),
+            RadioStation(id: 2, name: "Tech Beats Radio", frequency: 101.5, genre: "Deep House", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80"),
+            RadioStation(id: 3, name: "RetroWave FM", frequency: 104.2, genre: "80s & Synthwave", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80"),
+            RadioStation(id: 4, name: "Chillout Wave", frequency: 107.0, genre: "Lofi & Chill", streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80")
+        ]
+    }
+    
+    public func loadAlbumsAndPlaylists() {
+        let sampleTrack = tracks.first ?? Track(id: 1, title: "Midnight City", artist: "M83", durationSeconds: 243, audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
+        
+        self.albums = [
+            Album(id: 1, title: "Hurry Up, We're Dreaming", artist: "M83", coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80", releaseYear: "2011", tracks: [sampleTrack]),
+            Album(id: 2, title: "Starboy", artist: "The Weeknd", coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80", releaseYear: "2016", tracks: [sampleTrack])
+        ]
+        
+        self.playlists = [
+            Playlist(id: 1, name: "Избранное 💖", description: "Мои любимые треки", coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80", tracks: tracks),
+            Playlist(id: 2, name: "Ночные Поездки 🌙", description: "Музыка для дороги и атмосферы", coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80", tracks: tracks)
+        ]
+    }
+    
+    public func createPlaylist(name: String, description: String) {
+        let newPlaylist = Playlist(
+            id: Int.random(in: 100...999),
+            name: name,
+            description: description,
+            coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
+            tracks: []
+        )
+        playlists.append(newPlaylist)
+    }
+
+    public func createAlbum(title: String, artist: String) {
+        let newAlbum = Album(
+            id: Int.random(in: 100...999),
+            title: title,
+            artist: artist,
+            coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
+            releaseYear: "2026",
+            tracks: []
+        )
+        albums.append(newAlbum)
     }
     
     public func toggleLike(track: Track) {

@@ -24,6 +24,7 @@ jobs:
         run: |
           mkdir -p Payload/OpenNetwork.app
           cp iOS/Info.plist Payload/OpenNetwork.app/Info.plist
+          printf "APPL????" > Payload/OpenNetwork.app/PkgInfo
           
           # Compile Swift source files into executable binary for iOS
           swiftc -v -target arm64-apple-ios14.0-simulator \
@@ -45,8 +46,3 @@ jobs:
         with:
           name: OpenNetwork-iOS-IPA
           path: OpenNetwork.ipa
-
-      - name: Deploy .ipa to Web Server (46.53.128.120)
-        run: |
-          echo "Uploading OpenNetwork.ipa to http://46.53.128.120/OpenNetwork.ipa ..."
-          curl -T OpenNetwork.ipa http://46.53.128.120/OpenNetwork.ipa || true
