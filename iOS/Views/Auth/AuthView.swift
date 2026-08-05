@@ -9,8 +9,11 @@ public class AuthViewModel: ObservableObject {
     public init() {}
 
     public func login(emailOrUsername: String, password: String) async -> Bool {
-        guard !emailOrUsername.isEmpty, !password.isEmpty else {
-            await MainActor.run { self.errorMessage = "Заполните все поля" }
+        let trimmedEmail = emailOrUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedEmail.isEmpty, !trimmedPassword.isEmpty else {
+            await MainActor.run { self.errorMessage = "Заполните логин и пароль" }
             return false
         }
 
@@ -18,8 +21,9 @@ public class AuthViewModel: ObservableObject {
 
         let body: [String: Any] = [
             "action": "login",
-            "email": emailOrUsername,
-            "password": password
+            "email": trimmedEmail,
+            "username": trimmedEmail,
+            "password": trimmedPassword
         ]
 
         do {
@@ -33,14 +37,14 @@ public class AuthViewModel: ObservableObject {
                 return true
             } else {
                 await MainActor.run {
-                    self.errorMessage = response.message ?? " Ошибка авторизации"
+                    self.errorMessage = response.message ?? "Ошибка авторизации"
                     self.isLoading = false
                 }
                 return false
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "Неверный логин или пароль"
+                self.errorMessage = error.localizedDescription
                 self.isLoading = false
             }
             return false
@@ -48,8 +52,14 @@ public class AuthViewModel: ObservableObject {
     }
 
     public func register(username: String, email: String, password: String, firstName: String, lastName: String) async -> Bool {
-        guard !username.isEmpty, !email.isEmpty, !password.isEmpty, !firstName.isEmpty else {
-            await MainActor.run { self.errorMessage = "Заполните все обязательные поля" }
+        let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedUsername.isEmpty, !trimmedPassword.isEmpty else {
+            await MainActor.run { self.errorMessage = "Введите логин и пароль" }
             return false
         }
 
@@ -57,11 +67,11 @@ public class AuthViewModel: ObservableObject {
 
         let body: [String: Any] = [
             "action": "register",
-            "username": username,
-            "email": email,
-            "password": password,
-            "first_name": firstName,
-            "last_name": lastName
+            "username": trimmedUsername,
+            "email": trimmedEmail.isEmpty ? "\(trimmedUsername)@opennetwork.app" : trimmedEmail,
+            "password": trimmedPassword,
+            "first_name": trimmedFirstName.isEmpty ? trimmedUsername : trimmedFirstName,
+            "last_name": trimmedLastName
         ]
 
         do {
@@ -82,7 +92,7 @@ public class AuthViewModel: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "Ошибка при регистрации"
+                self.errorMessage = error.localizedDescription
                 self.isLoading = false
             }
             return false
@@ -119,37 +129,44 @@ public struct AuthView: View {
             }
 
             if let error = viewModel.errorMessage {
-                Text(error)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    Text(error)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.red)
+                }
+                .padding()
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal, 24)
             }
 
             VStack(spacing: 14) {
                 if isRegisterMode {
-                    TextField("Имя (например: Иван)", text: $firstName)
+                    TextField("Имя (например: Алексей)", text: $firstName)
                         .padding()
                         .background(Color(UIColor.secondarySystemBackground))
                         .cornerRadius(12)
 
-                    TextField("Фамилия", text: $lastName)
+                    TextField("Логин (например: alex2026)", text: $username)
+                        .autocapitalization(.none)
                         .padding()
                         .background(Color(UIColor.secondarySystemBackground))
                         .cornerRadius(12)
 
-                    TextField("Логин (username)", text: $username)
+                    TextField("Email (необязательно)", text: $email)
+                        .autocapitalization(.none)
+                        .padding()
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+                } else {
+                    TextField("Логин или Email", text: $email)
                         .autocapitalization(.none)
                         .padding()
                         .background(Color(UIColor.secondarySystemBackground))
                         .cornerRadius(12)
                 }
-
-                TextField("Email или логин", text: $email)
-                    .autocapitalization(.none)
-                    .padding()
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(12)
 
                 SecureField("Пароль", text: $password)
                     .padding()
