@@ -1,5 +1,22 @@
 import SwiftUI
 
+public class ChannelsViewModel: ObservableObject {
+    @Published public var channels: [Channel] = []
+    
+    public init() {
+        self.channels = [
+            Channel(id: 1, name: "OpenNetwork News", description: "Официальный канал новостей платформы", subscribersCount: 15400, isSubscribed: true, isVerified: true, category: "Новости"),
+            Channel(id: 2, name: "Музыка & Радио", description: "Лучшие новейшие музыкальные релизы", subscribersCount: 8900, isSubscribed: false, isVerified: true, category: "Музыка")
+        ]
+    }
+    
+    public func toggleSubscribe(channel: Channel) {
+        if let idx = channels.firstIndex(where: { $0.id == channel.id }) {
+            channels[idx].isSubscribed.toggle()
+        }
+    }
+}
+
 public struct ChannelsView: View {
     @StateObject private var viewModel = ChannelsViewModel()
 
