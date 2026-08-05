@@ -42,7 +42,7 @@ public class ProfileViewModel: ObservableObject {
         ]
         
         do {
-            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "profile.php", method: "POST", body: body)
+            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "profile.php", method: "POST", jsonBody: body)
             await MainActor.run {
                 if !avatarUrl.isEmpty { self.user.avatarUrl = avatarUrl }
                 if !coverUrl.isEmpty { self.user.coverUrl = coverUrl }

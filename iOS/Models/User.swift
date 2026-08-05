@@ -64,4 +64,19 @@ public struct User: Identifiable, Codable, Equatable, Hashable {
         self.isOnline = isOnline
         self.lastSeenText = lastSeenText
     }
+
+    public static var demoUser = User(
+        id: 1,
+        username: "user",
+        firstName: "Пользователь",
+        lastName: "",
+        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+        coverUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+        statusText: "Свобода общения и музыка 🚀",
+        isVerified: true,
+        followersCount: 0,
+        followingCount: 0,
+        bio: "Пользователь сети OpenNetwork",
+        isOnline: true
+    )
 }

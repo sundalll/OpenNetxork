@@ -23,7 +23,7 @@ public class AuthViewModel: ObservableObject {
         ]
 
         do {
-            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", body: body)
+            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", jsonBody: body)
             if response.success, let user = response.data {
                 await MainActor.run {
                     self.currentUser = user
@@ -65,7 +65,7 @@ public class AuthViewModel: ObservableObject {
         ]
 
         do {
-            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", body: body)
+            let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", jsonBody: body)
             if response.success, let user = response.data {
                 await MainActor.run {
                     self.currentUser = user

@@ -84,7 +84,7 @@ public class VideoViewModel: ObservableObject {
         ]
         
         do {
-            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "video_upload.php", method: "POST", body: body)
+            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "video_upload.php", method: "POST", jsonBody: body)
             await MainActor.run {
                 loadVideos()
             }

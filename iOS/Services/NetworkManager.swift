@@ -62,4 +62,9 @@ public class NetworkManager: ObservableObject {
             throw error
         }
     }
+
+    public func request<T: Codable>(endpoint: String, method: String = "GET", jsonBody: [String: Any]) async throws -> T {
+        let data = try JSONSerialization.data(withJSONObject: jsonBody)
+        return try await request(endpoint: endpoint, method: method, body: data)
+    }
 }
