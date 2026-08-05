@@ -15,7 +15,7 @@ if (!file_exists($uploadDir)) {
     mkdir($uploadDir, 0777, true);
 }
 
-$baseUrl = "http://46.53.128.120/uploads/";
+$baseUrl = "https://myrlika.bond/uploads/";
 
 // 1. Из файлов ($_FILES)
 if (!empty($_FILES['file'])) {

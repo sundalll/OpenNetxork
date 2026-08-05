@@ -139,7 +139,7 @@ public struct AuthView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                if let logoUrl = URL(string: "http://46.53.128.120/Logo/murlika.png") {
+                if let logoUrl = URL(string: "https://myrlika.bond/Logo/murlika.png") {
                     if #available(iOS 15.0, *) {
                         AsyncImage(url: logoUrl) { image in
                             image.resizable().scaledToFit()

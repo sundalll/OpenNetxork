@@ -19,7 +19,7 @@ public struct MainTabView: View {
                         }
                         .tag(0)
 
-                    ChannelsView()
+                    ChannelsView(currentUser: user)
                         .tabItem {
                             Label("Каналы", systemImage: "text.bubble.fill")
                         }

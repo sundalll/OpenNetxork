@@ -35,14 +35,15 @@ public class ChannelsViewModel: ObservableObject {
         }
     }
 
-    public func createChannel(name: String, description: String, category: String, avatarUrl: String, coverUrl: String) async -> Bool {
+    public func createChannel(name: String, description: String, category: String, avatarUrl: String, coverUrl: String, userId: Int = 1) async -> Bool {
         let body: [String: Any] = [
             "action": "create",
             "name": name,
             "description": description,
             "category": category,
             "avatar_url": avatarUrl,
-            "cover_url": coverUrl
+            "cover_url": coverUrl,
+            "user_id": userId
         ]
 
         do {
@@ -114,6 +115,7 @@ public class ChannelsViewModel: ObservableObject {
 public struct CreateChannelView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: ChannelsViewModel
+    public var currentUser: User?
 
     @State private var name: String = ""
     @State private var description: String = ""
@@ -129,8 +131,9 @@ public struct CreateChannelView: View {
     @State private var isUploadingCover: Bool = false
     @State private var isSubmitting: Bool = false
 
-    public init(viewModel: ChannelsViewModel) {
+    public init(viewModel: ChannelsViewModel, currentUser: User? = nil) {
         self.viewModel = viewModel
+        self.currentUser = currentUser
     }
 
     public var body: some View {
@@ -172,7 +175,7 @@ public struct CreateChannelView: View {
                 trailing: Button("Создать") {
                     Task {
                         isSubmitting = true
-                        let success = await viewModel.createChannel(name: name, description: description, category: category, avatarUrl: avatarUrl, coverUrl: coverUrl)
+                        let success = await viewModel.createChannel(name: name, description: description, category: category, avatarUrl: avatarUrl, coverUrl: coverUrl, userId: currentUser?.id ?? 1)
                         isSubmitting = false
                         if success {
                             presentationMode.wrappedValue.dismiss()
@@ -211,17 +214,27 @@ public struct CreateChannelView: View {
 public struct ChannelDetailView: View {
     public let channel: Channel
     @ObservedObject var viewModel: ChannelsViewModel
+    public var currentUser: User?
+
     @State private var newPostText: String = ""
     @State private var newPostImageUrl: String = ""
-
     @State private var showPostImagePicker: Bool = false
     @State private var postImage: UIImage? = nil
     @State private var isUploadingPostImage: Bool = false
     @State private var showPostModal: Bool = false
+    @State private var showSubscribersModal: Bool = false
 
-    public init(channel: Channel, viewModel: ChannelsViewModel) {
+    public init(channel: Channel, viewModel: ChannelsViewModel, currentUser: User? = nil) {
         self.channel = channel
         self.viewModel = viewModel
+        self.currentUser = currentUser
+    }
+
+    private var isCreator: Bool {
+        if let current = currentUser, let ownerId = channel.userId {
+            return current.id == ownerId
+        }
+        return false
     }
 
     public var body: some View {
@@ -268,23 +281,35 @@ public struct ChannelDetailView: View {
                                 }
                             }
 
-                            Text("\(channel.category) • \(channel.subscribersCount) подписчиков")
-                                .font(.system(size: 14))
-                                .foregroundColor(.blue)
+                            Button(action: { showSubscribersModal = true }) {
+                                Text("\(channel.category) • \(channel.subscribersCount) подписчиков")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.blue)
+                            }
                         }
 
                         Spacer()
 
-                        Button(action: {
-                            viewModel.toggleSubscribe(channel: channel)
-                        }) {
-                            Text(channel.isSubscribed ? "Вы подписаны" : "Подписаться")
-                                .font(.system(size: 14, weight: .bold))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(channel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
-                                .foregroundColor(channel.isSubscribed ? .primary : .white)
-                                .cornerRadius(20)
+                        if isCreator {
+                            Text("Создатель ⭐")
+                                .font(.system(size: 13, weight: .bold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.orange.opacity(0.2))
+                                .foregroundColor(.orange)
+                                .cornerRadius(14)
+                        } else {
+                            Button(action: {
+                                viewModel.toggleSubscribe(channel: channel)
+                            }) {
+                                Text(channel.isSubscribed ? "Вы подписаны" : "Подписаться")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(channel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
+                                    .foregroundColor(channel.isSubscribed ? .primary : .white)
+                                    .cornerRadius(20)
+                            }
                         }
                     }
 
@@ -304,11 +329,14 @@ public struct ChannelDetailView: View {
                         Text("Записи канала")
                             .font(.system(size: 18, weight: .bold))
                         Spacer()
-                        Button("+ Написать пост") {
-                            showPostModal = true
+
+                        if isCreator {
+                            Button("+ Написать пост") {
+                                showPostModal = true
+                            }
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.blue)
                         }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.blue)
                     }
                     .padding(.horizontal, 20)
 
@@ -319,7 +347,7 @@ public struct ChannelDetailView: View {
                                     .font(.system(size: 15))
                                     .lineSpacing(4)
 
-                                if let img = post.imageUrl, let url = URL(string: img) {
+                                if let img = post.imageUrl, let url = URL(string: img), !img.isEmpty {
                                     if #available(iOS 15.0, *) {
                                         AsyncImage(url: url) { image in
                                             image.resizable().scaledToFill()
@@ -351,7 +379,7 @@ public struct ChannelDetailView: View {
                             .padding(.horizontal, 20)
                         }
                     } else {
-                        Text("В этом канале пока нет публикаций. Опубликуйте первую запись!")
+                        Text(isCreator ? "В вашем канале пока нет публикаций. Напишите первую запись!" : "В этом канале пока нет публикаций.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                             .padding(20)
@@ -362,6 +390,9 @@ public struct ChannelDetailView: View {
         .navigationBarTitle(channel.name, displayMode: .inline)
         .onAppear {
             viewModel.fetchChannelDetails(channelId: channel.id)
+        }
+        .sheet(isPresented: $showSubscribersModal) {
+            UserListSheetView(title: "Подписчики канала", users: [User.demoUser])
         }
         .sheet(isPresented: $showPostModal) {
             NavigationView {
@@ -417,23 +448,32 @@ public struct ChannelDetailView: View {
 
 public struct ChannelsView: View {
     @StateObject private var viewModel = ChannelsViewModel()
+    public var currentUser: User?
     @State private var showCreateChannelModal: Bool = false
     @State private var searchText: String = ""
+    @State private var selectedTabSegment: Int = 0 // 0: Каталог, 1: Мои каналы
+
+    public init(currentUser: User? = nil) {
+        self.currentUser = currentUser
+    }
 
     var filteredChannels: [Channel] {
+        var baseList = viewModel.channels
+        if selectedTabSegment == 1, let current = currentUser {
+            baseList = baseList.filter { $0.userId == current.id }
+        }
+
         if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return viewModel.channels
+            return baseList
         } else {
             let query = searchText.lowercased()
-            return viewModel.channels.filter {
+            return baseList.filter {
                 $0.name.lowercased().contains(query) ||
                 $0.description.lowercased().contains(query) ||
                 $0.category.lowercased().contains(query)
             }
         }
     }
-
-    public init() {}
 
     public var body: some View {
         NavigationView {
@@ -451,9 +491,17 @@ public struct ChannelsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
+                Picker("", selection: $selectedTabSegment) {
+                    Text("📢 Каталог").tag(0)
+                    Text("⭐ Мои каналы").tag(1)
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+
                 List {
                     Section(header: HStack {
-                        Text("Каналы & Паблики")
+                        Text(selectedTabSegment == 1 ? "Мои Каналы" : "Каналы & Паблики")
                         Spacer()
                         Button("+ Создать канал") {
                             showCreateChannelModal = true
@@ -463,12 +511,12 @@ public struct ChannelsView: View {
                     }) {
                         if filteredChannels.isEmpty {
                             VStack(spacing: 12) {
-                                Text(searchText.isEmpty ? "Каналы пока не созданы." : "Каналы не найдены по запросу '\(searchText)'")
+                                Text(selectedTabSegment == 1 ? "У вас пока нет созданных каналов." : (searchText.isEmpty ? "Каналы пока не созданы." : "Каналы не найдены по запросу '\(searchText)'"))
                                     .foregroundColor(.secondary)
                                     .font(.system(size: 15))
                                 
                                 Button(action: { showCreateChannelModal = true }) {
-                                    Text("Создать первый канал")
+                                    Text("Создать новый канал")
                                         .font(.system(size: 14, weight: .bold))
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 8)
@@ -481,7 +529,7 @@ public struct ChannelsView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                         } else {
                             ForEach(filteredChannels) { channel in
-                                NavigationLink(destination: ChannelDetailView(channel: channel, viewModel: viewModel)) {
+                                NavigationLink(destination: ChannelDetailView(channel: channel, viewModel: viewModel, currentUser: currentUser)) {
                                     HStack(spacing: 12) {
                                         AvatarView(urlString: channel.avatarUrl, size: 52)
 
@@ -508,18 +556,28 @@ public struct ChannelsView: View {
 
                                         Spacer()
 
-                                        Button(action: {
-                                            viewModel.toggleSubscribe(channel: channel)
-                                        }) {
-                                            Text(channel.isSubscribed ? "Вы подписаны" : "Подписаться")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 6)
-                                                .background(channel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
-                                                .foregroundColor(channel.isSubscribed ? .primary : .white)
-                                                .cornerRadius(14)
+                                        if currentUser != nil && channel.userId == currentUser?.id {
+                                            Text("Создатель")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.orange.opacity(0.2))
+                                                .foregroundColor(.orange)
+                                                .cornerRadius(10)
+                                        } else {
+                                            Button(action: {
+                                                viewModel.toggleSubscribe(channel: channel)
+                                            }) {
+                                                Text(channel.isSubscribed ? "Вы подписаны" : "Подписаться")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 6)
+                                                    .background(channel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
+                                                    .foregroundColor(channel.isSubscribed ? .primary : .white)
+                                                    .cornerRadius(14)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
-                                        .buttonStyle(PlainButtonStyle())
                                     }
                                     .padding(.vertical, 4)
                                 }
@@ -531,7 +589,7 @@ public struct ChannelsView: View {
             }
             .navigationBarTitle("Каналы")
             .sheet(isPresented: $showCreateChannelModal) {
-                CreateChannelView(viewModel: viewModel)
+                CreateChannelView(viewModel: viewModel, currentUser: currentUser)
             }
         }
     }

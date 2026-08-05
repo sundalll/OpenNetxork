@@ -1,5 +1,65 @@
 import SwiftUI
 
+public class MusicViewModel: ObservableObject {
+    @Published public var tracks: [Track] = []
+    @Published public var albums: [Album] = []
+    @Published public var playlists: [Playlist] = []
+    @Published public var isLoading: Bool = false
+
+    public init() {
+        loadTracks()
+    }
+
+    public func loadTracks() {
+        self.isLoading = true
+        Task {
+            do {
+                let fetchedTracks: [Track] = try await NetworkManager.shared.request(endpoint: "music.php")
+                await MainActor.run {
+                    self.tracks = fetchedTracks
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run { self.isLoading = false }
+            }
+        }
+    }
+
+    public func uploadNewTrack(title: String, artist: String, album: String, audioUrl: String, coverUrl: String) async -> Bool {
+        let body: [String: Any] = [
+            "title": title,
+            "artist": artist,
+            "album_name": album,
+            "audio_url": audioUrl,
+            "cover_url": coverUrl
+        ]
+
+        do {
+            let response: APIResponse<Track> = try await NetworkManager.shared.request(endpoint: "music_upload.php", method: "POST", jsonBody: body)
+            if response.success, let newTrack = response.data {
+                await MainActor.run {
+                    self.tracks.insert(newTrack, at: 0)
+                }
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    public func toggleLike(track: Track) {
+        if let idx = tracks.firstIndex(where: { $0.id == track.id }) {
+            tracks[idx].isLiked.toggle()
+        }
+    }
+
+    public func createPlaylist(name: String, description: String) {
+        let newPlaylist = Playlist(id: Int.random(in: 100...999), name: name, description: description)
+        playlists.insert(newPlaylist, at: 0)
+    }
+}
+
 public struct LyricsView: View {
     public let track: Track
     @Environment(\.presentationMode) var presentationMode
@@ -142,143 +202,6 @@ public struct UploadTrackView: View {
     }
 }
 
-public struct MusicPlayerView: View {
-    public let track: Track
-    @ObservedObject var playerManager = AudioPlayerManager.shared
-    @Environment(\.presentationMode) var presentationMode
-    @State private var showLyrics: Bool = false
-    
-    public init(track: Track) {
-        self.track = track
-    }
-
-    public var body: some View {
-        VStack(spacing: 24) {
-            Capsule()
-                .fill(Color.gray.opacity(0.4))
-                .frame(width: 40, height: 5)
-                .padding(.top, 12)
-
-            Spacer()
-
-            if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
-                if #available(iOS 15.0, *) {
-                    AsyncImage(url: url) { img in
-                        img.resizable().scaledToFill()
-                    } placeholder: {
-                        Rectangle().fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(width: 260, height: 260)
-                    .cornerRadius(20)
-                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 8)
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
-                        .frame(width: 260, height: 260)
-                        .background(Color.blue.opacity(0.15))
-                        .cornerRadius(20)
-                }
-            } else {
-                Image(systemName: "music.note")
-                    .font(.system(size: 80))
-                    .foregroundColor(.blue)
-                    .frame(width: 260, height: 260)
-                    .background(Color.blue.opacity(0.15))
-                    .cornerRadius(20)
-            }
-
-            VStack(spacing: 6) {
-                Text(track.title)
-                    .font(.system(size: 22, weight: .bold))
-                    .multilineTextAlignment(.center)
-                
-                Text(track.artist)
-                    .font(.system(size: 16))
-                    .foregroundColor(.secondary)
-                
-                if let album = track.albumName {
-                    Text("Альбом: \(album)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.blue)
-                }
-            }
-            .padding(.horizontal, 24)
-
-            // Progress Slider
-            VStack(spacing: 6) {
-                Slider(value: Binding(
-                    get: { playerManager.currentTime },
-                    set: { newValue in playerManager.seek(to: newValue) }
-                ), in: 0...(playerManager.duration > 0 ? playerManager.duration : Double(max(1, track.durationSeconds))))
-                .accentColor(.blue)
-                
-                HStack {
-                    Text(formatTime(playerManager.currentTime))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(track.durationFormatted)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.horizontal, 32)
-
-            // Controls & Lyrics
-            HStack(spacing: 36) {
-                Button(action: {
-                    showLyrics = true
-                }) {
-                    Image(systemName: "quote.bubble.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(.blue)
-                }
-
-                Button(action: {}) {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: 26))
-                        .foregroundColor(.primary)
-                }
-
-                Button(action: {
-                    playerManager.togglePlayPause()
-                }) {
-                    Image(systemName: playerManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 64))
-                        .foregroundColor(.blue)
-                }
-
-                Button(action: {}) {
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 26))
-                        .foregroundColor(.primary)
-                }
-
-                Button(action: {}) {
-                    Image(systemName: track.isLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 22))
-                        .foregroundColor(track.isLiked ? .red : .primary)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .background(Color(UIColor.systemBackground).ignoresSafeArea())
-        .sheet(isPresented: $showLyrics) {
-            LyricsView(track: track)
-        }
-    }
-
-    private func formatTime(_ seconds: Double) -> String {
-        let totalSeconds = Int(seconds)
-        let mins = totalSeconds / 60
-        let secs = totalSeconds % 60
-        return String(format: "%d:%02d", mins, secs)
-    }
-}
-
 public struct MusicView: View {
     @StateObject private var viewModel = MusicViewModel()
     @ObservedObject private var playerManager = AudioPlayerManager.shared
@@ -317,8 +240,7 @@ public struct MusicView: View {
                 .cornerRadius(12)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                
-                // Segmented Picker (Треки / Альбомы / Плейлисты)
+
                 Picker("", selection: $selectedSegment) {
                     Text("Все треки").tag(0)
                     Text("Альбомы").tag(1)
@@ -329,7 +251,6 @@ public struct MusicView: View {
                 .padding(.vertical, 8)
 
                 if selectedSegment == 0 {
-                    // Tracks List
                     List {
                         Section(header: HStack {
                             Text("Музыка (MP3, WAV, FLAC)")
@@ -402,7 +323,6 @@ public struct MusicView: View {
                     }
                     .listStyle(InsetGroupedListStyle())
                 } else if selectedSegment == 1 {
-                    // Albums View
                     List {
                         Section(header: Text("Музыкальные Альбомы")) {
                             if viewModel.albums.isEmpty {
@@ -410,32 +330,11 @@ public struct MusicView: View {
                                     .foregroundColor(.secondary)
                                     .font(.system(size: 14))
                                     .padding(.vertical, 12)
-                            } else {
-                                ForEach(viewModel.albums) { album in
-                                    HStack(spacing: 14) {
-                                        Image(systemName: "square.stack.fill")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(.purple)
-                                            .frame(width: 52, height: 52)
-                                            .background(Color.purple.opacity(0.15))
-                                            .cornerRadius(10)
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(album.title)
-                                                .font(.system(size: 16, weight: .bold))
-                                            Text("\(album.artist) • \(album.releaseYear)")
-                                                .font(.system(size: 13))
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
                             }
                         }
                     }
                     .listStyle(InsetGroupedListStyle())
                 } else if selectedSegment == 2 {
-                    // Playlists View
                     List {
                         Section(header: HStack {
                             Text("Мои Плейлисты")
@@ -472,26 +371,6 @@ public struct MusicView: View {
             .navigationBarTitle("Музыка")
             .sheet(isPresented: $showUploadModal) {
                 UploadTrackView(viewModel: viewModel)
-            }
-            .sheet(isPresented: $showCreatePlaylistModal) {
-                NavigationView {
-                    Form {
-                        Section(header: Text("Параметры плейлиста")) {
-                            TextField("Название плейлиста", text: $newPlaylistName)
-                            TextField("Описание", text: $newPlaylistDesc)
-                        }
-                    }
-                    .navigationBarTitle("Новый плейлист", displayMode: .inline)
-                    .navigationBarItems(
-                        leading: Button("Отмена") { showCreatePlaylistModal = false },
-                        trailing: Button("Создать") {
-                            viewModel.createPlaylist(name: newPlaylistName, description: newPlaylistDesc)
-                            newPlaylistName = ""
-                            newPlaylistDesc = ""
-                            showCreatePlaylistModal = false
-                        }.font(.system(size: 16, weight: .bold))
-                    )
-                }
             }
         }
     }

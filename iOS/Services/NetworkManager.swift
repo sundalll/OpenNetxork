@@ -21,7 +21,7 @@ public enum NetworkError: Error, LocalizedError {
 public class NetworkManager: ObservableObject {
     public static let shared = NetworkManager()
     
-    @Published public var baseURL: String = "http://46.53.128.120/api"
+    @Published public var baseURL: String = "https://myrlika.bond/api"
     @Published public var authToken: String? = nil
     
     private init() {}
