@@ -135,7 +135,7 @@ public struct VideoCatalogView: View {
                         LazyVStack(spacing: 20) {
                             ForEach(viewModel.videos) { video in
                                 VStack(alignment: .leading, spacing: 10) {
-                                    ZStack(alignment: .bottomRight) {
+                                    ZStack(alignment: .bottomTrailing) {
                                         if let url = URL(string: video.thumbnailUrl) {
                                             if #available(iOS 15.0, *) {
                                                 AsyncImage(url: url) { img in
