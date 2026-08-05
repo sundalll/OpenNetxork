@@ -8,7 +8,12 @@ public struct PostCardView: View {
     
     @ObservedObject private var playerManager = AudioPlayerManager.shared
     
-    public init(post: Post, onLike: @escaping () -> Void, onRepost: @escaping () -> Void, onComment: @escaping () -> Void) {
+    public init(
+        post: Post,
+        onLike: @escaping () -> Void = {},
+        onRepost: @escaping () -> Void = {},
+        onComment: @escaping () -> Void = {}
+    ) {
         self.post = post
         self.onLike = onLike
         self.onRepost = onRepost
