@@ -10,30 +10,53 @@ public class ProfileViewModel: ObservableObject {
     @Published public var isEditingProfile: Bool = false
     @Published public var statusEditingText: String = ""
     @Published public var isEditingStatus: Bool = false
-    
-    public init(user: User) {
+
+    public init(user: User = User.demoUser) {
         self.user = user
         self.statusEditingText = user.statusText ?? ""
-        loadUserWall()
+        loadUserProfile()
     }
-    
-    public func loadUserWall() {
-        let samplePost = Post(
-            id: 201,
-            author: user,
-            text: "Привет всем! Добро пожаловать на мою официальную страницу в приложении. Пишите в комментарии свои впечатления! ✨",
-            likesCount: 88,
-            isLiked: false,
-            repostsCount: 12,
-            commentsCount: 15,
-            viewsCount: 1200,
-            createdAtFormatted: "Вчера в 18:40"
-        )
-        self.userPosts = [samplePost]
+
+    public func loadUserProfile() {
+        self.isLoading = true
+        Task {
+            do {
+                let fetchedUser: User = try await NetworkManager.shared.request(endpoint: "profile.php?user_id=\(user.id)")
+                await MainActor.run {
+                    self.user = fetchedUser
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run { self.isLoading = false }
+            }
+        }
     }
-    
+
+    public func updateProfile(avatarUrl: String, coverUrl: String, statusText: String, bio: String) async -> Bool {
+        let body: [String: Any] = [
+            "user_id": user.id,
+            "avatar_url": avatarUrl,
+            "cover_url": coverUrl,
+            "status_text": statusText,
+            "bio": bio
+        ]
+        
+        do {
+            let _: APIResponse<[String: String]> = try await NetworkManager.shared.request(endpoint: "profile.php", method: "POST", body: body)
+            await MainActor.run {
+                if !avatarUrl.isEmpty { self.user.avatarUrl = avatarUrl }
+                if !coverUrl.isEmpty { self.user.coverUrl = coverUrl }
+                if !statusText.isEmpty { self.user.statusText = statusText }
+                if !bio.isEmpty { self.user.bio = bio }
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
     public func saveStatus() {
-        userProfile.statusText = statusEditingText
+        user.statusText = statusEditingText
         isEditingStatus = false
     }
 }
@@ -122,89 +145,6 @@ public class MusicViewModel: ObservableObject {
     public func toggleLike(track: Track) {
         if let index = tracks.firstIndex(where: { $0.id == track.id }) {
             tracks[index].isLiked.toggle()
-        }
-    }
-}
-
-public class VideoViewModel: ObservableObject {
-    @Published public var videos: [Video] = []
-    
-    public init() {
-        loadVideos()
-    }
-    
-    public func loadVideos() {
-        let author = User(id: 1, username: "apple_tech", firstName: "Apple", lastName: "Special", avatarUrl: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80")
-        
-        self.videos = [
-            Video(
-                id: 1,
-                title: "Презентация iOS & SwiftUI: Будущее мобильных приложений",
-                description: "Полный обзор создания современных интерактивных приложений для iOS от 13 до 18 систем.",
-                author: author,
-                thumbnailUrl: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
-                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-                durationSeconds: 125,
-                viewsCount: 42300,
-                likesCount: 3410,
-                isLiked: true,
-                createdAtFormatted: "3 дня назад"
-            ),
-            Video(
-                id: 2,
-                title: "Обзор функционала соцсети: Музыка, Видео, Каналы",
-                description: "Подробный разбор интерфейса и фоновой музыки.",
-                author: author,
-                thumbnailUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
-                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-                durationSeconds: 596,
-                viewsCount: 18900,
-                likesCount: 1200,
-                isLiked: false,
-                createdAtFormatted: "Неделю назад"
-            )
-        ]
-    }
-}
-
-public class ChannelsViewModel: ObservableObject {
-    @Published public var channels: [Channel] = []
-    
-    public init() {
-        loadChannels()
-    }
-    
-    public func loadChannels() {
-        self.channels = [
-            Channel(
-                id: 1,
-                name: "Технологии будущего 🚀",
-                description: "Главные новости науки, искусственного интеллекта и разработки ПО.",
-                avatarUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80",
-                coverUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
-                subscribersCount: 84500,
-                isSubscribed: true,
-                isVerified: true,
-                category: "ИТ и Наука"
-            ),
-            Channel(
-                id: 2,
-                name: "Музыкальный Пульс 🎵",
-                description: "Самые горячие новинки мира музыки, рецензии и альбомы.",
-                avatarUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
-                coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
-                subscribersCount: 120300,
-                isSubscribed: false,
-                isVerified: true,
-                category: "Музыка"
-            )
-        ]
-    }
-    
-    public func toggleSubscribe(channel: Channel) {
-        if let index = channels.firstIndex(where: { $0.id == channel.id }) {
-            channels[index].isSubscribed.toggle()
-            channels[index].subscribersCount += channels[index].isSubscribed ? 1 : -1
         }
     }
 }
