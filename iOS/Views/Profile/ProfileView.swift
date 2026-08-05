@@ -18,10 +18,10 @@ public struct EditProfileView: View {
 
     public init(viewModel: ProfileViewModel) {
         self.viewModel = viewModel
-        _avatarUrl = State(initialValue: viewModel.userProfile.avatarUrl ?? "")
-        _coverUrl = State(initialValue: viewModel.userProfile.coverUrl ?? "")
-        _statusText = State(initialValue: viewModel.userProfile.statusText ?? "")
-        _bio = State(initialValue: viewModel.userProfile.bio ?? "")
+        _avatarUrl = State(initialValue: viewModel.user.avatarUrl ?? "")
+        _coverUrl = State(initialValue: viewModel.user.coverUrl ?? "")
+        _statusText = State(initialValue: viewModel.user.statusText ?? "")
+        _bio = State(initialValue: viewModel.user.bio ?? "")
     }
 
     public var body: some View {
@@ -120,7 +120,7 @@ public struct ProfileView: View {
             VStack(spacing: 0) {
                 // Background Header Cover
                 ZStack(alignment: .bottomLeading) {
-                    if let coverUrl = viewModel.userProfile.coverUrl, let url = URL(string: coverUrl) {
+                    if let coverUrl = viewModel.user.coverUrl, let url = URL(string: coverUrl) {
                         if #available(iOS 15.0, *) {
                             AsyncImage(url: url) { image in
                                 image.resizable().scaledToFill()
@@ -139,7 +139,7 @@ public struct ProfileView: View {
                     }
 
                     // Avatar
-                    AvatarView(user: viewModel.userProfile, size: 84)
+                    AvatarView(user: viewModel.user, size: 84)
                         .overlay(Circle().stroke(Color(UIColor.systemBackground), lineWidth: 4))
                         .offset(x: 20, y: 40)
                 }
@@ -150,16 +150,16 @@ public struct ProfileView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
-                                Text(viewModel.userProfile.fullName)
+                                Text(viewModel.user.fullName)
                                     .font(.system(size: 22, weight: .bold))
-                                if viewModel.userProfile.isVerified {
+                                if viewModel.user.isVerified {
                                     Image(systemName: "checkmark.seal.fill")
                                         .foregroundColor(.blue)
                                         .font(.system(size: 18))
                                 }
                             }
 
-                            if let status = viewModel.userProfile.statusText, !status.isEmpty {
+                            if let status = viewModel.user.statusText, !status.isEmpty {
                                 Text(status)
                                     .font(.system(size: 14))
                                     .foregroundColor(.secondary)
@@ -178,7 +178,7 @@ public struct ProfileView: View {
                         }
                     }
 
-                    if let bio = viewModel.userProfile.bio, !bio.isEmpty {
+                    if let bio = viewModel.user.bio, !bio.isEmpty {
                         Text(bio)
                             .font(.system(size: 13))
                             .foregroundColor(.primary)
@@ -187,7 +187,7 @@ public struct ProfileView: View {
 
                     HStack(spacing: 20) {
                         HStack(spacing: 4) {
-                            Text("\(viewModel.userProfile.followersCount)")
+                            Text("\(viewModel.user.followersCount)")
                                 .font(.system(size: 14, weight: .bold))
                             Text("подписчиков")
                                 .font(.system(size: 14))
@@ -195,7 +195,7 @@ public struct ProfileView: View {
                         }
 
                         HStack(spacing: 4) {
-                            Text("\(viewModel.userProfile.followingCount)")
+                            Text("\(viewModel.user.followingCount)")
                                 .font(.system(size: 14, weight: .bold))
                             Text("подписок")
                                 .font(.system(size: 14))
@@ -215,13 +215,13 @@ public struct ProfileView: View {
                         .font(.system(size: 18, weight: .bold))
                         .padding(.horizontal, 20)
 
-                    if viewModel.posts.isEmpty {
+                    if viewModel.userPosts.isEmpty {
                         Text("У вас пока нет публикаций на стене.")
                             .foregroundColor(.secondary)
                             .font(.system(size: 14))
                             .padding(20)
                     } else {
-                        ForEach(viewModel.posts) { post in
+                        ForEach(viewModel.userPosts) { post in
                             PostCardView(post: post)
                                 .padding(.horizontal, 16)
                         }
@@ -229,7 +229,7 @@ public struct ProfileView: View {
                 }
             }
         }
-        .navigationBarTitle(viewModel.userProfile.fullName, displayMode: .inline)
+        .navigationBarTitle(viewModel.user.fullName, displayMode: .inline)
         .sheet(isPresented: $showEditModal) {
             EditProfileView(viewModel: viewModel)
         }
