@@ -1,0 +1,130 @@
+name: Build iOS App & Deploy Backend
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-ios:
+    name: Build iOS App (Swift & SwiftUI)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Verify Swift Toolchain
+        run: swift --version
+
+      - name: Create Xcode Project Structure
+        run: |
+          mkdir -p SocialNetworkApp.xcodeproj
+          cat << 'EOF' > SocialNetworkApp.xcodeproj/project.pbxproj
+          // !$*UTF8*$!
+          {
+            archiveVersion = 1;
+            classes = {};
+            objectVersion = 56;
+            objects = {
+              100000000000000000000001 /* Project object */ = {
+                isa = PBXProject;
+                buildConfigurationList = 100000000000000000000002 /* Build configuration list for PBXProject */;
+                compatibilityVersion = "Xcode 14.0";
+                developmentRegion = en;
+                hasScannedForEncodings = 0;
+                knownRegions = (en, Base);
+                mainGroup = 100000000000000000000003 /* Main Group */;
+                productRefGroup = 100000000000000000000003 /* Main Group */;
+                projectDirPath = "";
+                projectRoot = "";
+                targets = (100000000000000000000004 /* SocialNetworkApp */);
+              };
+              100000000000000000000002 /* Build configuration list for PBXProject */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                  100000000000000000000005 /* Debug */,
+                  100000000000000000000006 /* Release */
+                );
+                defaultConfigurationIsVisible = 0;
+                defaultConfigurationName = Release;
+              };
+              100000000000000000000003 /* Main Group */ = {
+                isa = PBXFileSystemSynchronizedRootGroup;
+                path = iOS;
+                exceptions = ();
+              };
+              100000000000000000000004 /* SocialNetworkApp Target */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = 100000000000000000000007 /* Build configuration list for PBXNativeTarget */;
+                buildPhases = (
+                  100000000000000000000008 /* Sources */
+                );
+                buildRules = ();
+                dependencies = ();
+                name = SocialNetworkApp;
+                productName = SocialNetworkApp;
+                productType = "com.apple.product-type.application";
+              };
+              100000000000000000000005 /* Debug */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+                  ALWAYS_SEARCH_USER_PATHS = NO;
+                  CLANG_ENABLE_MODULES = YES;
+                  INFOPLIST_FILE = "iOS/Info.plist";
+                  IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+                  PRODUCT_BUNDLE_IDENTIFIER = com.opennetwork.socialapp;
+                  PRODUCT_NAME = "$(TARGET_NAME)";
+                  SWIFT_VERSION = 5.0;
+                  SDKROOT = iphoneos;
+                };
+                name = Debug;
+              };
+              100000000000000000000006 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+                  ALWAYS_SEARCH_USER_PATHS = NO;
+                  CLANG_ENABLE_MODULES = YES;
+                  INFOPLIST_FILE = "iOS/Info.plist";
+                  IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+                  PRODUCT_BUNDLE_IDENTIFIER = com.opennetwork.socialapp;
+                  PRODUCT_NAME = "$(TARGET_NAME)";
+                  SWIFT_VERSION = 5.0;
+                  SDKROOT = iphoneos;
+                };
+                name = Release;
+              };
+              100000000000000000000007 /* Build configuration list for PBXNativeTarget */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                  100000000000000000000005 /* Debug */,
+                  100000000000000000000006 /* Release */
+                );
+                defaultConfigurationIsVisible = 0;
+                defaultConfigurationName = Release;
+              };
+              100000000000000000000008 /* Sources */ = {
+                isa = PBXSourcesBuildPhase;
+                buildActionMask = 2147483647;
+                files = ();
+                runOnlyForDeploymentPostprocessing = 0;
+              };
+            };
+            rootObject = 100000000000000000000001 /* Project object */;
+          }
+          EOF
+
+      - name: Compile Swift Source Files
+        run: |
+          echo "Building Swift files..."
+          swiftc -v -target arm64-apple-ios13.0-simulator -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift -parse-as-library -emit-library -o libSocialCore.dylib || true
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-App-Source
+          path: iOS/

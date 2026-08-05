@@ -1,0 +1,67 @@
+import Foundation
+
+public struct User: Identifiable, Codable, Equatable, Hashable {
+    public let id: Int
+    public var username: String
+    public var firstName: String
+    public var lastName: String
+    public var avatarUrl: String?
+    public var coverUrl: String?
+    public var statusText: String?
+    public var isVerified: Bool
+    public var followersCount: Int
+    public var followingCount: Int
+    public var bio: String?
+    public var isOnline: Bool
+    public var lastSeenText: String?
+    
+    public var fullName: String {
+        return "\(firstName) \(lastName)"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case avatarUrl = "avatar_url"
+        case coverUrl = "cover_url"
+        case statusText = "status_text"
+        case isVerified = "is_verified"
+        case followersCount = "followers_count"
+        case followingCount = "following_count"
+        case bio
+        case isOnline = "is_online"
+        case lastSeenText = "last_seen_text"
+    }
+
+    public init(
+        id: Int,
+        username: String,
+        firstName: String,
+        lastName: String,
+        avatarUrl: String? = nil,
+        coverUrl: String? = nil,
+        statusText: String? = nil,
+        isVerified: Bool = false,
+        followersCount: Int = 0,
+        followingCount: Int = 0,
+        bio: String? = nil,
+        isOnline: Bool = false,
+        lastSeenText: String? = nil
+    ) {
+        self.id = id
+        self.username = username
+        self.firstName = firstName
+        self.lastName = lastName
+        self.avatarUrl = avatarUrl
+        self.coverUrl = coverUrl
+        self.statusText = statusText
+        self.isVerified = isVerified
+        self.followersCount = followersCount
+        self.followingCount = followingCount
+        self.bio = bio
+        self.isOnline = isOnline
+        self.lastSeenText = lastSeenText
+    }
+}
