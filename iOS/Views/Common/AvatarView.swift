@@ -10,6 +10,12 @@ public struct AvatarView: View {
         self.size = size
         self.isOnline = isOnline
     }
+
+    public init(user: User, size: CGFloat = 44) {
+        self.urlString = user.avatarUrl
+        self.size = size
+        self.isOnline = user.isOnline
+    }
     
     public var body: some View {
         ZStack(alignment: .bottomTrailing) {
