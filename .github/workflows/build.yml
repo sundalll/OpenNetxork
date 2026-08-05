@@ -20,15 +20,15 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Create .app Bundle & Compile Executable Binary
+      - name: Create .app Bundle & Compile Real ARM64 iOS Device Binary
         run: |
           mkdir -p Payload/OpenNetwork.app
           cp iOS/Info.plist Payload/OpenNetwork.app/Info.plist
           printf "APPL????" > Payload/OpenNetwork.app/PkgInfo
           
-          # Compile Swift source files into executable binary for iOS arm64 simulator
-          swiftc -v -target arm64-apple-ios14.0-simulator \
-            -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) \
+          # Compile Swift source files into real arm64-apple-ios device Mach-O executable
+          swiftc -v -target arm64-apple-ios14.0 \
+            -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
             iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift \
             iOS/Views/Common/*.swift iOS/Views/Feed/*.swift iOS/Views/Profile/*.swift \
             iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift \
@@ -37,7 +37,7 @@ jobs:
             -o Payload/OpenNetwork.app/OpenNetwork
           
           chmod +x Payload/OpenNetwork.app/OpenNetwork
-          ls -la Payload/OpenNetwork.app/
+          file Payload/OpenNetwork.app/OpenNetwork
 
       - name: Package .ipa File
         run: |
