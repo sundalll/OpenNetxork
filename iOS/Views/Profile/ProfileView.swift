@@ -79,7 +79,7 @@ public struct ProfileView: View {
                                 Button("Сохранить") {
                                     viewModel.saveStatus()
                                 }
-                                .bold()
+                                .font(.system(size: 14, weight: .bold))
                             }
                             .padding(.horizontal, 20)
                         } else if let status = viewModel.userProfile.statusText, !status.isEmpty {

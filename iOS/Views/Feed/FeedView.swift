@@ -67,7 +67,7 @@ public struct CreatePostView: View {
                     feedViewModel.createPost(author: currentUser, text: textInput)
                     presentationMode.wrappedValue.dismiss()
                 }
-                .bold()
+                .font(.system(size: 16, weight: .bold))
                 .disabled(textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             )
         }
