@@ -91,7 +91,7 @@ public class AuthViewModel: ObservableObject {
 }
 
 public struct AuthView: View {
-    @StateObject private var viewModel = AuthViewModel()
+    @ObservedObject private var viewModel: AuthViewModel
     @State private var isRegisterMode: Bool = false
 
     @State private var username: String = ""
@@ -100,7 +100,9 @@ public struct AuthView: View {
     @State private var firstName: String = ""
     @State private var lastName: String = ""
 
-    public init() {}
+    public init(authViewModel: AuthViewModel? = nil) {
+        self.viewModel = authViewModel ?? AuthViewModel()
+    }
 
     public var body: some View {
         VStack(spacing: 24) {
