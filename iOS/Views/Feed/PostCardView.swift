@@ -62,17 +62,25 @@ public struct PostCardView: View {
             // Attachments (Images or Audio)
             ForEach(post.attachments, id: \.id) { attachment in
                 if attachment.type == .image, let url = URL(string: attachment.url) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .cornerRadius(8)
-                    } placeholder: {
+                    if #available(iOS 15.0, *) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(8)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.2))
+                                .aspectRatio(16/9, contentMode: .fit)
+                        }
+                        .padding(.horizontal, 16)
+                    } else {
                         Rectangle()
                             .fill(Color.gray.opacity(0.2))
-                            .aspectRatio(16/9, contentMode: .fit)
+                            .frame(height: 200)
+                            .cornerRadius(8)
+                            .padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16)
                 } else if attachment.type == .audio {
                     HStack(spacing: 12) {
                         Image(systemName: "music.note")

@@ -21,14 +21,23 @@ public struct MusicPlayerView: View {
 
             // Big Cover Art
             if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
-                AsyncImage(url: url) { img in
-                    img.resizable().scaledToFill()
-                } placeholder: {
-                    Rectangle().fill(Color.gray.opacity(0.3))
+                if #available(iOS 15.0, *) {
+                    AsyncImage(url: url) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle().fill(Color.gray.opacity(0.3))
+                    }
+                    .frame(width: 280, height: 280)
+                    .cornerRadius(20)
+                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 8)
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 80))
+                        .foregroundColor(.blue)
+                        .frame(width: 280, height: 280)
+                        .background(Color.blue.opacity(0.15))
+                        .cornerRadius(20)
                 }
-                .frame(width: 280, height: 280)
-                .cornerRadius(20)
-                .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 8)
             } else {
                 Image(systemName: "music.note")
                     .font(.system(size: 80))
@@ -120,13 +129,20 @@ public struct MusicView: View {
                     ForEach(viewModel.tracks) { track in
                         HStack(spacing: 12) {
                             if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
-                                AsyncImage(url: url) { img in
-                                    img.resizable().scaledToFill()
-                                } placeholder: {
-                                    Color.gray.opacity(0.3)
+                                if #available(iOS 15.0, *) {
+                                    AsyncImage(url: url) { img in
+                                        img.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.gray.opacity(0.3)
+                                    }
+                                    .frame(width: 48, height: 48)
+                                    .cornerRadius(8)
+                                } else {
+                                    Image(systemName: "music.note")
+                                        .frame(width: 48, height: 48)
+                                        .background(Color.blue.opacity(0.2))
+                                        .cornerRadius(8)
                                 }
-                                .frame(width: 48, height: 48)
-                                .cornerRadius(8)
                             } else {
                                 Image(systemName: "music.note")
                                     .frame(width: 48, height: 48)

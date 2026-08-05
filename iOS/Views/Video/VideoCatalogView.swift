@@ -76,14 +76,21 @@ public struct VideoCatalogView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 // Thumbnail with Duration Badge
                                 ZStack(alignment: .bottomTrailing) {
-                                    AsyncImage(url: URL(string: video.thumbnailUrl)) { img in
-                                        img.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Rectangle().fill(Color.gray.opacity(0.3))
+                                    if #available(iOS 15.0, *) {
+                                        AsyncImage(url: URL(string: video.thumbnailUrl)) { img in
+                                            img.resizable().scaledToFill()
+                                        } placeholder: {
+                                            Rectangle().fill(Color.gray.opacity(0.3))
+                                        }
+                                        .frame(height: 200)
+                                        .clipped()
+                                        .cornerRadius(12)
+                                    } else {
+                                        Rectangle()
+                                            .fill(Color.gray.opacity(0.3))
+                                            .frame(height: 200)
+                                            .cornerRadius(12)
                                     }
-                                    .frame(height: 200)
-                                    .clipped()
-                                    .cornerRadius(12)
                                     
                                     Text(video.durationFormatted)
                                         .font(.system(size: 11, weight: .bold))

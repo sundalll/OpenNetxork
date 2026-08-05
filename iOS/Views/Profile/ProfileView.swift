@@ -14,15 +14,20 @@ public struct ProfileView: View {
                     // Cover Banner
                     ZStack(alignment: .bottomLeading) {
                         if let coverUrl = viewModel.userProfile.coverUrl, let url = URL(string: coverUrl) {
-                            AsyncImage(url: url) { img in
-                                img.resizable().scaledToFill()
-                            } placeholder: {
-                                LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            if #available(iOS 15.0, *) {
+                                AsyncImage(url: url) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                }
+                                .frame(height: 140)
+                                .clipped()
+                            } else {
+                                LinearGradient(gradient: Gradient(colors: [.blue, .purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    .frame(height: 140)
                             }
-                            .frame(height: 140)
-                            .clipped()
                         } else {
-                            LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            LinearGradient(gradient: Gradient(colors: [.blue, .purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
                                 .frame(height: 140)
                         }
                     }

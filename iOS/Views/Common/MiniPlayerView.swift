@@ -10,13 +10,20 @@ public struct MiniPlayerView: View {
         if let track = playerManager.currentTrack {
             HStack(spacing: 12) {
                 if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
-                    AsyncImage(url: url) { img in
-                        img.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.gray.opacity(0.3)
+                    if #available(iOS 15.0, *) {
+                        AsyncImage(url: url) { img in
+                            img.resizable().scaledToFill()
+                        } placeholder: {
+                            Color.gray.opacity(0.3)
+                        }
+                        .frame(width: 42, height: 42)
+                        .cornerRadius(6)
+                    } else {
+                        Image(systemName: "music.note")
+                            .frame(width: 42, height: 42)
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(6)
                     }
-                    .frame(width: 42, height: 42)
-                    .cornerRadius(6)
                 } else {
                     Image(systemName: "music.note")
                         .frame(width: 42, height: 42)

@@ -14,17 +14,25 @@ public struct AvatarView: View {
     public var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if let urlString = urlString, let url = URL(string: urlString) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
+                if #available(iOS 15.0, *) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .foregroundColor(.gray.opacity(0.4))
+                    }
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                } else {
                     Image(systemName: "person.crop.circle.fill")
                         .resizable()
-                        .foregroundColor(.gray.opacity(0.4))
+                        .frame(width: size, height: size)
+                        .foregroundColor(.blue.opacity(0.6))
+                        .clipShape(Circle())
                 }
-                .frame(width: size, height: size)
-                .clipShape(Circle())
             } else {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()
