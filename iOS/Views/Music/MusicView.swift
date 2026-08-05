@@ -202,6 +202,143 @@ public struct UploadTrackView: View {
     }
 }
 
+public struct MusicPlayerView: View {
+    public let track: Track
+    @ObservedObject var playerManager = AudioPlayerManager.shared
+    @Environment(\.presentationMode) var presentationMode
+    @State private var showLyrics: Bool = false
+    
+    public init(track: Track) {
+        self.track = track
+    }
+
+    public var body: some View {
+        VStack(spacing: 24) {
+            Capsule()
+                .fill(Color.gray.opacity(0.4))
+                .frame(width: 40, height: 5)
+                .padding(.top, 12)
+
+            Spacer()
+
+            if let coverUrl = track.coverUrl, let url = URL(string: coverUrl) {
+                if #available(iOS 15.0, *) {
+                    AsyncImage(url: url) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle().fill(Color.gray.opacity(0.3))
+                    }
+                    .frame(width: 260, height: 260)
+                    .cornerRadius(20)
+                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 8)
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 80))
+                        .foregroundColor(.blue)
+                        .frame(width: 260, height: 260)
+                        .background(Color.blue.opacity(0.15))
+                        .cornerRadius(20)
+                }
+            } else {
+                Image(systemName: "music.note")
+                    .font(.system(size: 80))
+                    .foregroundColor(.blue)
+                    .frame(width: 260, height: 260)
+                    .background(Color.blue.opacity(0.15))
+                    .cornerRadius(20)
+            }
+
+            VStack(spacing: 6) {
+                Text(track.title)
+                    .font(.system(size: 22, weight: .bold))
+                    .multilineTextAlignment(.center)
+                
+                Text(track.artist)
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondary)
+                
+                if let album = track.albumName {
+                    Text("Альбом: \(album)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal, 24)
+
+            // Progress Slider
+            VStack(spacing: 6) {
+                Slider(value: Binding(
+                    get: { playerManager.currentTime },
+                    set: { newValue in playerManager.seek(to: newValue) }
+                ), in: 0...(playerManager.duration > 0 ? playerManager.duration : Double(max(1, track.durationSeconds))))
+                .accentColor(.blue)
+                
+                HStack {
+                    Text(formatTime(playerManager.currentTime))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(track.durationFormatted)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 32)
+
+            // Controls & Lyrics
+            HStack(spacing: 36) {
+                Button(action: {
+                    showLyrics = true
+                }) {
+                    Image(systemName: "quote.bubble.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(.blue)
+                }
+
+                Button(action: {}) {
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(.primary)
+                }
+
+                Button(action: {
+                    playerManager.togglePlayPause()
+                }) {
+                    Image(systemName: playerManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 64))
+                        .foregroundColor(.blue)
+                }
+
+                Button(action: {}) {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(.primary)
+                }
+
+                Button(action: {}) {
+                    Image(systemName: track.isLiked ? "heart.fill" : "heart")
+                        .font(.system(size: 22))
+                        .foregroundColor(track.isLiked ? .red : .primary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .background(Color(UIColor.systemBackground).ignoresSafeArea())
+        .sheet(isPresented: $showLyrics) {
+            LyricsView(track: track)
+        }
+    }
+
+    private func formatTime(_ seconds: Double) -> String {
+        let totalSeconds = Int(seconds)
+        let mins = totalSeconds / 60
+        let secs = totalSeconds % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+}
+
 public struct MusicView: View {
     @StateObject private var viewModel = MusicViewModel()
     @ObservedObject private var playerManager = AudioPlayerManager.shared
