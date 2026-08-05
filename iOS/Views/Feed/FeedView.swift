@@ -98,13 +98,15 @@ public struct FeedView: View {
     
     @State private var showCreatePostModal: Bool = false
     @State private var searchText: String = ""
+    @State private var selectedFeedSegment: Int = 0 // 0: Рекомендации, 1: Подписки
 
     var filteredPosts: [Post] {
+        let basePosts = feedViewModel.posts
         if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return feedViewModel.posts
+            return basePosts
         } else {
             let query = searchText.lowercased()
-            return feedViewModel.posts.filter {
+            return basePosts.filter {
                 $0.text.lowercased().contains(query) ||
                 $0.author.username.lowercased().contains(query) ||
                 $0.author.fullName.lowercased().contains(query)
@@ -133,6 +135,14 @@ public struct FeedView: View {
                     .cornerRadius(12)
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
+
+                    // Feed Segmented Control
+                    Picker("", selection: $selectedFeedSegment) {
+                        Text("🔥 Рекомендации").tag(0)
+                        Text("👥 Мои подписки").tag(1)
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.horizontal, 12)
 
                     // Create Post Trigger Bar
                     HStack(spacing: 12) {

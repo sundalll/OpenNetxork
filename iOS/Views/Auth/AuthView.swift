@@ -6,7 +6,25 @@ public class AuthViewModel: ObservableObject {
     @Published public var errorMessage: String? = nil
     @Published public var isLoading: Bool = false
 
-    public init() {}
+    public init() {
+        if let data = UserDefaults.standard.data(forKey: "saved_murlika_user"),
+           let savedUser = try? JSONDecoder().decode(User.self, from: data) {
+            self.currentUser = savedUser
+            self.isAuthenticated = true
+        }
+    }
+
+    private func saveSession(user: User) {
+        if let data = try? JSONEncoder().encode(user) {
+            UserDefaults.standard.set(data, forKey: "saved_murlika_user")
+        }
+    }
+
+    public func logout() {
+        UserDefaults.standard.removeObject(forKey: "saved_murlika_user")
+        self.currentUser = nil
+        self.isAuthenticated = false
+    }
 
     public func login(emailOrUsername: String, password: String) async -> Bool {
         let trimmedEmail = emailOrUsername.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -30,6 +48,7 @@ public class AuthViewModel: ObservableObject {
             let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", jsonBody: body)
             if response.success, let user = response.data {
                 await MainActor.run {
+                    self.saveSession(user: user)
                     self.currentUser = user
                     self.isAuthenticated = true
                     self.isLoading = false
@@ -78,6 +97,7 @@ public class AuthViewModel: ObservableObject {
             let response: APIResponse<User> = try await NetworkManager.shared.request(endpoint: "auth.php", method: "POST", jsonBody: body)
             if response.success, let user = response.data {
                 await MainActor.run {
+                    self.saveSession(user: user)
                     self.currentUser = user
                     self.isAuthenticated = true
                     self.isLoading = false

@@ -3,6 +3,7 @@ import SwiftUI
 public struct EditProfileView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: ProfileViewModel
+    public var onUpdate: ((User) -> Void)? = nil
     
     @State private var avatarUrl: String
     @State private var coverUrl: String
@@ -16,8 +17,9 @@ public struct EditProfileView: View {
     @State private var isUploadingAvatar: Bool = false
     @State private var isUploadingCover: Bool = false
 
-    public init(viewModel: ProfileViewModel) {
+    public init(viewModel: ProfileViewModel, onUpdate: ((User) -> Void)? = nil) {
         self.viewModel = viewModel
+        self.onUpdate = onUpdate
         _avatarUrl = State(initialValue: viewModel.user.avatarUrl ?? "")
         _coverUrl = State(initialValue: viewModel.user.coverUrl ?? "")
         _statusText = State(initialValue: viewModel.user.statusText ?? "")
@@ -27,45 +29,31 @@ public struct EditProfileView: View {
     public var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Аватарка и Обложка")) {
+                Section(header: Text("Аватарка и Обложка (с телефона)")) {
                     HStack {
                         Button(action: { showAvatarPicker = true }) {
                             HStack {
                                 Image(systemName: "photo.on.rectangle")
-                                Text("Выбрать аватарку с телефона")
+                                Text(avatarUrl.isEmpty ? "Выбрать аватарку с телефона" : "Аватарка загружена ✓")
                                     .font(.system(size: 14, weight: .bold))
                             }
                         }
                         if isUploadingAvatar { ProgressView() }
                     }
 
-                    if !avatarUrl.isEmpty {
-                        Text("URL аватарки: \(avatarUrl)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-
                     HStack {
                         Button(action: { showCoverPicker = true }) {
                             HStack {
                                 Image(systemName: "photo.fill")
-                                Text("Выбрать обложку с телефона")
+                                Text(coverUrl.isEmpty ? "Выбрать обложку с телефона" : "Обложка загружена ✓")
                                     .font(.system(size: 14, weight: .bold))
                             }
                         }
                         if isUploadingCover { ProgressView() }
                     }
-
-                    if !coverUrl.isEmpty {
-                        Text("URL обложки: \(coverUrl)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
                 }
 
-                Section(header: Text("Статус и Инфо")) {
+                Section(header: Text("Статус и Описание профиля")) {
                     TextField("Текстовый статус", text: $statusText)
                     TextField("О себе (био)", text: $bio)
                 }
@@ -76,7 +64,14 @@ public struct EditProfileView: View {
                 trailing: Button("Сохранить") {
                     Task {
                         let success = await viewModel.updateProfile(avatarUrl: avatarUrl, coverUrl: coverUrl, statusText: statusText, bio: bio)
-                        if success { presentationMode.wrappedValue.dismiss() }
+                        if success {
+                            // Сохраняем обновленную сессию локально
+                            if let data = try? JSONEncoder().encode(viewModel.user) {
+                                UserDefaults.standard.set(data, forKey: "saved_murlika_user")
+                            }
+                            onUpdate?(viewModel.user)
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
@@ -107,12 +102,65 @@ public struct EditProfileView: View {
     }
 }
 
+public struct UserListSheetView: View {
+    @Environment(\.presentationMode) var presentationMode
+    public let title: String
+    public let users: [User]
+
+    public init(title: String, users: [User]) {
+        self.title = title
+        self.users = users
+    }
+
+    public var body: some View {
+        NavigationView {
+            List {
+                if users.isEmpty {
+                    Text("Список пока пуст.")
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 20)
+                } else {
+                    ForEach(users) { user in
+                        NavigationLink(destination: ProfileView(user: user)) {
+                            HStack(spacing: 12) {
+                                AvatarView(user: user, size: 44)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(user.fullName)
+                                        .font(.system(size: 15, weight: .bold))
+                                    Text("@\(user.username)")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(InsetGroupedListStyle())
+            .navigationBarTitle(title, displayMode: .inline)
+            .navigationBarItems(trailing: Button("Закрыть") { presentationMode.wrappedValue.dismiss() })
+        }
+    }
+}
+
 public struct ProfileView: View {
     @StateObject private var viewModel: ProfileViewModel
+    public var currentUser: User?
     @State private var showEditModal: Bool = false
+    @State private var showFollowersModal: Bool = false
+    @State private var showFollowingModal: Bool = false
+    @State private var isSubscribed: Bool = false
 
-    public init(user: User = User.demoUser) {
+    public init(user: User = User.demoUser, currentUser: User? = nil) {
         _viewModel = StateObject(wrappedValue: ProfileViewModel(user: user))
+        self.currentUser = currentUser
+    }
+
+    private var isOwnProfile: Bool {
+        if let current = currentUser {
+            return current.id == viewModel.user.id
+        }
+        return false
     }
 
     public var body: some View {
@@ -140,7 +188,6 @@ public struct ProfileView: View {
 
                     // Avatar
                     AvatarView(user: viewModel.user, size: 84)
-                        .overlay(Circle().stroke(Color(UIColor.systemBackground), lineWidth: 4))
                         .offset(x: 20, y: 40)
                 }
                 .padding(.bottom, 45)
@@ -168,13 +215,25 @@ public struct ProfileView: View {
 
                         Spacer()
 
-                        Button(action: { showEditModal = true }) {
-                            Text("Редактировать")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 7)
-                                .background(Color(UIColor.secondarySystemGroupedBackground))
-                                .cornerRadius(16)
+                        if isOwnProfile {
+                            Button(action: { showEditModal = true }) {
+                                Text("Редактировать")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(Color(UIColor.secondarySystemGroupedBackground))
+                                    .cornerRadius(16)
+                            }
+                        } else {
+                            Button(action: { isSubscribed.toggle() }) {
+                                Text(isSubscribed ? "Вы подписаны" : "Подписаться")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(isSubscribed ? Color(UIColor.secondarySystemGroupedBackground) : Color.blue)
+                                    .foregroundColor(isSubscribed ? .primary : .white)
+                                    .cornerRadius(16)
+                            }
                         }
                     }
 
@@ -186,20 +245,24 @@ public struct ProfileView: View {
                     }
 
                     HStack(spacing: 20) {
-                        HStack(spacing: 4) {
-                            Text("\(viewModel.user.followersCount)")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("подписчиков")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                        Button(action: { showFollowersModal = true }) {
+                            HStack(spacing: 4) {
+                                Text("\(viewModel.user.followersCount)")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("подписчиков")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
                         }
 
-                        HStack(spacing: 4) {
-                            Text("\(viewModel.user.followingCount)")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("подписок")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                        Button(action: { showFollowingModal = true }) {
+                            HStack(spacing: 4) {
+                                Text("\(viewModel.user.followingCount)")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("подписок")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .padding(.top, 6)
@@ -216,7 +279,7 @@ public struct ProfileView: View {
                         .padding(.horizontal, 20)
 
                     if viewModel.userPosts.isEmpty {
-                        Text("У вас пока нет публикаций на стене.")
+                        Text("Публикаций пока нет.")
                             .foregroundColor(.secondary)
                             .font(.system(size: 14))
                             .padding(20)
@@ -232,6 +295,12 @@ public struct ProfileView: View {
         .navigationBarTitle(viewModel.user.fullName, displayMode: .inline)
         .sheet(isPresented: $showEditModal) {
             EditProfileView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showFollowersModal) {
+            UserListSheetView(title: "Подписчики", users: [User.demoUser])
+        }
+        .sheet(isPresented: $showFollowingModal) {
+            UserListSheetView(title: "Подписки", users: [User.demoUser])
         }
     }
 }

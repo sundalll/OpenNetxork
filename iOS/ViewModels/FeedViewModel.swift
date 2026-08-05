@@ -13,63 +13,19 @@ public class FeedViewModel: ObservableObject {
 
     public func loadFeed() {
         self.isLoading = true
-        
-        // Симулированный демонстрационный контент социальной сети VK-стиля
-        let author1 = User(
-            id: 1,
-            username: "durov",
-            firstName: "Павел",
-            lastName: "Дуров",
-            avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-            statusText: "Создаем будущее",
-            isVerified: true,
-            isOnline: true
-        )
-        
-        let author2 = User(
-            id: 2,
-            username: "tech_insider",
-            firstName: "Apple",
-            lastName: "News",
-            avatarUrl: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=400&q=80",
-            isVerified: true,
-            isOnline: false
-        )
-
-        let post1 = Post(
-            id: 101,
-            author: author1,
-            text: "Привет всем пользователям нашей новой социальной сети на Swift & SwiftUI! 🚀\n\nДизайн создан по всем стандартам iOS 13–18 с плавной анимацией, полной поддержкой встроенной музыки, видео, стенами и статусами.",
-            attachments: [
-                PostAttachment(id: "att1", type: .image, url: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1000&q=80")
-            ],
-            likesCount: 1420,
-            isLiked: true,
-            repostsCount: 312,
-            commentsCount: 89,
-            viewsCount: 15400,
-            createdAtFormatted: "15 минут назад"
-        )
-
-        let post2 = Post(
-            id: 102,
-            author: author2,
-            text: "🎵 Премьера нового альбома в плеере приложения! Нажмите на трек ниже, чтобы включить фоновый аудиоплеер с обложкой и управлением.",
-            attachments: [
-                PostAttachment(id: "att2", type: .audio, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", title: "Cyberpunk Dreams (Original Mix)", subtitle: "Synthwave Beats")
-            ],
-            likesCount: 950,
-            isLiked: false,
-            repostsCount: 140,
-            commentsCount: 42,
-            viewsCount: 8900,
-            createdAtFormatted: "2 часа назад",
-            channelName: "VK Music Official",
-            channelAvatarUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80"
-        )
-
-        self.posts = [post1, post2]
-        self.isLoading = false
+        Task {
+            do {
+                let fetchedPosts: [Post] = try await NetworkManager.shared.request(endpoint: "feed.php")
+                await MainActor.run {
+                    self.posts = fetchedPosts
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            }
+        }
     }
 
     public func toggleLike(for post: Post) {
@@ -86,13 +42,16 @@ public class FeedViewModel: ObservableObject {
         }
     }
 
-    public func createPost(author: User, text: String) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        
-        let newPost = Post(
-            id: Int.random(in: 1000...9999),
+    public func createPost(author: User, text: String, imageUrl: String = "") {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+
+        // Добавляем временно в интерфейс
+        let tempPost = Post(
+            id: Int.random(in: 10000...99999),
             author: author,
-            text: text,
+            text: trimmedText,
+            attachments: !imageUrl.isEmpty ? [PostAttachment(id: "img_temp", type: .image, url: imageUrl)] : [],
             likesCount: 0,
             isLiked: false,
             repostsCount: 0,
@@ -100,8 +59,30 @@ public class FeedViewModel: ObservableObject {
             viewsCount: 1,
             createdAtFormatted: "Только что"
         )
-        
-        posts.insert(newPost, at: 0)
-        postText = ""
+        self.posts.insert(tempPost, at: 0)
+
+        // Сохраняем пост на сервере в базу данных MariaDB
+        let body: [String: Any] = [
+            "user_id": author.id,
+            "text": trimmedText,
+            "image_url": imageUrl
+        ]
+
+        Task {
+            do {
+                let response: APIResponse<Post> = try await NetworkManager.shared.request(endpoint: "feed.php", method: "POST", jsonBody: body)
+                if response.success, let createdPost = response.data {
+                    await MainActor.run {
+                        if let idx = self.posts.firstIndex(where: { $0.id == tempPost.id }) {
+                            self.posts[idx] = createdPost
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.loadFeed()
+                }
+            }
+        }
     }
 }
