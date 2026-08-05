@@ -46,15 +46,17 @@ public class ChannelsViewModel: ObservableObject {
         ]
 
         do {
-            let _: APIResponse<Channel> = try await NetworkManager.shared.request(endpoint: "channels.php", method: "POST", jsonBody: body)
-            await MainActor.run {
-                loadChannels()
+            let response: APIResponse<Channel> = try await NetworkManager.shared.request(endpoint: "channels.php", method: "POST", jsonBody: body)
+            if response.success, let newChannel = response.data {
+                await MainActor.run {
+                    self.channels.insert(newChannel, at: 0)
+                }
+            } else {
+                await MainActor.run { loadChannels() }
             }
             return true
         } catch {
-            await MainActor.run {
-                loadChannels()
-            }
+            await MainActor.run { loadChannels() }
             return true
         }
     }
