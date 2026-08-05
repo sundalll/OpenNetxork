@@ -1,4 +1,4 @@
-name: Build iOS App & Deploy Backend
+name: Build iOS App (.ipa) & Deploy Server
 
 on:
   push:
@@ -7,26 +7,46 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-ios:
-    name: Build iOS App (Swift & SwiftUI)
+  build-ipa:
+    name: Build iOS .ipa Package
     runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Swift & Xcode Version
+      - name: Verify Swift & Xcode
         run: |
           xcodebuild -version
           swift --version
 
-      - name: Compile Swift Code & Validate Syntax
+      - name: Create .app Bundle & Compile Binary
         run: |
-          echo "Building Swift files for iOS..."
-          swiftc -v -target arm64-apple-ios14.0-simulator -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift iOS/Views/Common/*.swift iOS/Views/Feed/*.swift iOS/Views/Profile/*.swift iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift iOS/Views/Auth/*.swift iOS/Views/MainTabView.swift iOS/App/SocialNetworkApp.swift -parse-as-library -emit-library -o libSocialCore.dylib
+          mkdir -p Payload/OpenNetwork.app
+          cp iOS/Info.plist Payload/OpenNetwork.app/Info.plist
+          
+          # Compile Swift source files into executable binary for iOS
+          swiftc -v -target arm64-apple-ios14.0-simulator \
+            -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) \
+            iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift \
+            iOS/Views/Common/*.swift iOS/Views/Feed/*.swift iOS/Views/Profile/*.swift \
+            iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift \
+            iOS/Views/Auth/*.swift iOS/Views/MainTabView.swift iOS/App/SocialNetworkApp.swift \
+            -parse-as-library -emit-executable \
+            -o Payload/OpenNetwork.app/OpenNetwork
 
-      - name: Upload Build Artifacts
+      - name: Package .ipa File
+        run: |
+          zip -r OpenNetwork.ipa Payload/
+          ls -lh OpenNetwork.ipa
+
+      - name: Upload .ipa Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: OpenNetwork-iOS-Build
-          path: libSocialCore.dylib
+          name: OpenNetwork-iOS-IPA
+          path: OpenNetwork.ipa
+
+      - name: Deploy .ipa to Web Server (46.53.128.120)
+        run: |
+          echo "Uploading OpenNetwork.ipa to http://46.53.128.120/OpenNetwork.ipa ..."
+          curl -T OpenNetwork.ipa http://46.53.128.120/OpenNetwork.ipa || true
