@@ -6,6 +6,10 @@ public struct CreatePostView: View {
     public let currentUser: User
     
     @State private var textInput: String = ""
+    @State private var imageUrl: String = ""
+    @State private var showImagePicker: Bool = false
+    @State private var selectedImage: UIImage? = nil
+    @State private var isUploadingImage: Bool = false
 
     public init(feedViewModel: FeedViewModel, currentUser: User) {
         self.feedViewModel = feedViewModel
@@ -33,24 +37,27 @@ public struct CreatePostView: View {
                     .font(.system(size: 16))
                     .padding(.horizontal, 12)
 
+                if !imageUrl.isEmpty {
+                    Text("Фото прикреплено ✓")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 16)
+                }
+
                 Spacer()
 
                 HStack(spacing: 24) {
-                    Button(action: {}) {
-                        Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 22))
-                            .foregroundColor(.blue)
+                    Button(action: { showImagePicker = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 22))
+                                .foregroundColor(.blue)
+                            Text("Фото с телефона")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.blue)
+                        }
                     }
-                    Button(action: {}) {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 22))
-                            .foregroundColor(.blue)
-                    }
-                    Button(action: {}) {
-                        Image(systemName: "video")
-                            .font(.system(size: 22))
-                            .foregroundColor(.blue)
-                    }
+                    if isUploadingImage { ProgressView() }
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -70,6 +77,17 @@ public struct CreatePostView: View {
                 .font(.system(size: 16, weight: .bold))
                 .disabled(textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             )
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(selectedImage: $selectedImage) { img in
+                    Task {
+                        isUploadingImage = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            imageUrl = url
+                        }
+                        isUploadingImage = false
+                    }
+                }
+            }
         }
     }
 }

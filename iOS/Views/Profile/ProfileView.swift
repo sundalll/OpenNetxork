@@ -3,40 +3,71 @@ import SwiftUI
 public struct EditProfileView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: ProfileViewModel
+    
+    @State private var avatarUrl: String
+    @State private var coverUrl: String
+    @State private var statusText: String
+    @State private var bio: String
 
-    @State private var avatarUrl: String = ""
-    @State private var coverUrl: String = ""
-    @State private var statusText: String = ""
-    @State private var bio: String = ""
-    @State private var isSaving: Bool = false
+    @State private var showAvatarPicker: Bool = false
+    @State private var showCoverPicker: Bool = false
+    @State private var avatarImage: UIImage? = nil
+    @State private var coverImage: UIImage? = nil
+    @State private var isUploadingAvatar: Bool = false
+    @State private var isUploadingCover: Bool = false
 
     public init(viewModel: ProfileViewModel) {
         self.viewModel = viewModel
-        _avatarUrl = State(initialValue: viewModel.user.avatarUrl ?? "")
-        _coverUrl = State(initialValue: viewModel.user.coverUrl ?? "")
-        _statusText = State(initialValue: viewModel.user.statusText ?? "")
-        _bio = State(initialValue: viewModel.user.bio ?? "")
+        _avatarUrl = State(initialValue: viewModel.userProfile.avatarUrl ?? "")
+        _coverUrl = State(initialValue: viewModel.userProfile.coverUrl ?? "")
+        _statusText = State(initialValue: viewModel.userProfile.statusText ?? "")
+        _bio = State(initialValue: viewModel.userProfile.bio ?? "")
     }
 
     public var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Аватарка пользователя")) {
-                    TextField("URL картинки аватарки", text: $avatarUrl)
-                        .autocapitalization(.none)
+                Section(header: Text("Аватарка и Обложка")) {
+                    HStack {
+                        Button(action: { showAvatarPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text("Выбрать аватарку с телефона")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingAvatar { ProgressView() }
+                    }
+
+                    if !avatarUrl.isEmpty {
+                        Text("URL аватарки: \(avatarUrl)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    HStack {
+                        Button(action: { showCoverPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.fill")
+                                Text("Выбрать обложку с телефона")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingCover { ProgressView() }
+                    }
+
+                    if !coverUrl.isEmpty {
+                        Text("URL обложки: \(coverUrl)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
 
-                Section(header: Text("Задняя обложка профиля")) {
-                    TextField("URL картинки обложки", text: $coverUrl)
-                        .autocapitalization(.none)
-                }
-
-                Section(header: Text("Статус профиля")) {
-                    TextField("Ваш текущий статус", text: $statusText)
-                }
-
-                Section(header: Text("О себе (Био)")) {
-                    TextField("Расскажите о себе", text: $bio)
+                Section(header: Text("Статус и Инфо")) {
+                    TextField("Текстовый статус", text: $statusText)
+                    TextField("О себе (био)", text: $bio)
                 }
             }
             .navigationBarTitle("Редактировать профиль", displayMode: .inline)
@@ -44,159 +75,163 @@ public struct EditProfileView: View {
                 leading: Button("Отмена") { presentationMode.wrappedValue.dismiss() },
                 trailing: Button("Сохранить") {
                     Task {
-                        isSaving = true
                         let success = await viewModel.updateProfile(avatarUrl: avatarUrl, coverUrl: coverUrl, statusText: statusText, bio: bio)
-                        isSaving = false
-                        if success {
-                            presentationMode.wrappedValue.dismiss()
-                        }
+                        if success { presentationMode.wrappedValue.dismiss() }
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
-                .disabled(isSaving)
             )
+            .sheet(isPresented: $showAvatarPicker) {
+                ImagePicker(selectedImage: $avatarImage) { img in
+                    Task {
+                        isUploadingAvatar = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            avatarUrl = url
+                        }
+                        isUploadingAvatar = false
+                    }
+                }
+            }
+            .sheet(isPresented: $showCoverPicker) {
+                ImagePicker(selectedImage: $coverImage) { img in
+                    Task {
+                        isUploadingCover = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            coverUrl = url
+                        }
+                        isUploadingCover = false
+                    }
+                }
+            }
         }
     }
 }
 
 public struct ProfileView: View {
     @StateObject private var viewModel: ProfileViewModel
-    @State private var showEditProfileModal: Bool = false
+    @State private var showEditModal: Bool = false
 
     public init(user: User = User.demoUser) {
         _viewModel = StateObject(wrappedValue: ProfileViewModel(user: user))
     }
 
     public var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Header / Cover Image
-                    ZStack(alignment: .bottomLeading) {
-                        if let coverUrl = viewModel.user.coverUrl, let url = URL(string: coverUrl) {
-                            if #available(iOS 15.0, *) {
-                                AsyncImage(url: url) { img in
-                                    img.resizable().scaledToFill()
-                                } placeholder: {
-                                    Rectangle().fill(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing))
-                                }
-                                .frame(height: 160)
-                                .clipped()
-                            } else {
-                                Rectangle().fill(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .frame(height: 160)
+        ScrollView {
+            VStack(spacing: 0) {
+                // Background Header Cover
+                ZStack(alignment: .bottomLeading) {
+                    if let coverUrl = viewModel.userProfile.coverUrl, let url = URL(string: coverUrl) {
+                        if #available(iOS 15.0, *) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
                             }
+                            .frame(height: 160)
+                            .clipped()
                         } else {
-                            Rectangle().fill(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                            LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
                                 .frame(height: 160)
                         }
-
-                        // Avatar Image
-                        AvatarView(user: viewModel.user, size: 90)
-                            .overlay(Circle().stroke(Color(UIColor.systemBackground), lineWidth: 4))
-                            .offset(x: 20, y: 45)
+                    } else {
+                        LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                            .frame(height: 160)
                     }
-                    .padding(.bottom, 50)
 
-                    // Profile User Info
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 6) {
-                                    Text(viewModel.user.fullName)
-                                        .font(.system(size: 22, weight: .bold))
-                                    if viewModel.user.isVerified {
-                                        Image(systemName: "checkmark.seal.fill")
-                                            .foregroundColor(.blue)
-                                            .font(.system(size: 18))
-                                    }
+                    // Avatar
+                    AvatarView(user: viewModel.userProfile, size: 84)
+                        .overlay(Circle().stroke(Color(UIColor.systemBackground), lineWidth: 4))
+                        .offset(x: 20, y: 40)
+                }
+                .padding(.bottom, 45)
+
+                // Profile Info
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(viewModel.userProfile.fullName)
+                                    .font(.system(size: 22, weight: .bold))
+                                if viewModel.userProfile.isVerified {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.system(size: 18))
                                 }
-
-                                Text("@\(viewModel.user.username)")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
                             }
 
-                            Spacer()
-
-                            Button(action: {
-                                showEditProfileModal = true
-                            }) {
-                                Text("Редактировать")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.blue.opacity(0.15))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(20)
-                            }
-                        }
-
-                        // Status
-                        if let status = viewModel.user.statusText, !status.isEmpty {
-                            Text("💬 \(status)")
-                                .font(.system(size: 14))
-                                .foregroundColor(.primary)
-                                .padding(.top, 4)
-                        }
-
-                        // Bio
-                        if let bio = viewModel.user.bio, !bio.isEmpty {
-                            Text(bio)
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                                .padding(.top, 2)
-                        }
-
-                        // Followers / Following Stats
-                        HStack(spacing: 24) {
-                            HStack(spacing: 4) {
-                                Text("\(viewModel.user.followersCount)")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("подписчиков")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            HStack(spacing: 4) {
-                                Text("\(viewModel.user.followingCount)")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("подписок")
+                            if let status = viewModel.userProfile.statusText, !status.isEmpty {
+                                Text(status)
                                     .font(.system(size: 14))
                                     .foregroundColor(.secondary)
                             }
                         }
-                        .padding(.top, 8)
+
+                        Spacer()
+
+                        Button(action: { showEditModal = true }) {
+                            Text("Редактировать")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Color(UIColor.secondarySystemGroupedBackground))
+                                .cornerRadius(16)
+                        }
                     }
-                    .padding(.horizontal, 20)
 
-                    Divider()
-                        .padding(.vertical, 16)
+                    if let bio = viewModel.userProfile.bio, !bio.isEmpty {
+                        Text(bio)
+                            .font(.system(size: 13))
+                            .foregroundColor(.primary)
+                            .padding(.top, 4)
+                    }
 
-                    // User Wall Posts
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Стена профиля")
-                            .font(.system(size: 18, weight: .bold))
-                            .padding(.horizontal, 20)
-
-                        if viewModel.userPosts.isEmpty {
-                            Text("На стене пока нет записей.")
+                    HStack(spacing: 20) {
+                        HStack(spacing: 4) {
+                            Text("\(viewModel.userProfile.followersCount)")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("подписчиков")
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondary)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 20)
-                        } else {
-                            ForEach(viewModel.userPosts) { post in
-                                PostCardView(post: post)
-                            }
+                        }
+
+                        HStack(spacing: 4) {
+                            Text("\(viewModel.userProfile.followingCount)")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("подписок")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.top, 6)
+                }
+                .padding(.horizontal, 20)
+
+                Divider()
+                    .padding(.vertical, 16)
+
+                // User's Posts Wall
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Стена записей")
+                        .font(.system(size: 18, weight: .bold))
+                        .padding(.horizontal, 20)
+
+                    if viewModel.posts.isEmpty {
+                        Text("У вас пока нет публикаций на стене.")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 14))
+                            .padding(20)
+                    } else {
+                        ForEach(viewModel.posts) { post in
+                            PostCardView(post: post)
+                                .padding(.horizontal, 16)
                         }
                     }
                 }
             }
-            .navigationBarTitle("Профиль", displayMode: .inline)
-            .sheet(isPresented: $showEditProfileModal) {
-                EditProfileView(viewModel: viewModel)
-            }
+        }
+        .navigationBarTitle(viewModel.userProfile.fullName, displayMode: .inline)
+        .sheet(isPresented: $showEditModal) {
+            EditProfileView(viewModel: viewModel)
         }
     }
 }

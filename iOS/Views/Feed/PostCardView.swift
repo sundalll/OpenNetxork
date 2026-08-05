@@ -23,35 +23,38 @@ public struct PostCardView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header: Author Avatar & Name & Time
-            HStack(spacing: 10) {
-                AvatarView(urlString: post.author.avatarUrl, size: 42, isOnline: post.author.isOnline)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(post.channelName ?? post.author.fullName)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.primary)
-                        
-                        if post.author.isVerified {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 13))
-                                .foregroundColor(.blue)
+            NavigationLink(destination: ProfileView(user: post.author)) {
+                HStack(spacing: 10) {
+                    AvatarView(urlString: post.author.avatarUrl, size: 42, isOnline: post.author.isOnline)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text(post.channelName ?? post.author.fullName)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.primary)
+                            
+                            if post.author.isVerified {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.blue)
+                            }
                         }
+                        
+                        Text(post.createdAtFormatted)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                     }
                     
-                    Text(post.createdAtFormatted)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Button(action: {}) {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.secondary)
-                        .padding(6)
+                    Spacer()
+                    
+                    Button(action: {}) {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.secondary)
+                            .padding(6)
+                    }
                 }
             }
+            .buttonStyle(PlainButtonStyle())
             .padding(.horizontal, 16)
             .padding(.top, 14)
 

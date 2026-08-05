@@ -8,6 +8,9 @@ public struct UploadVideoView: View {
     @State private var description: String = ""
     @State private var videoUrl: String = ""
     @State private var thumbnailUrl: String = ""
+    @State private var showThumbnailPicker: Bool = false
+    @State private var thumbnailImage: UIImage? = nil
+    @State private var isUploadingThumbnail: Bool = false
     @State private var isSubmitting: Bool = false
 
     public init(viewModel: VideoViewModel) {
@@ -27,8 +30,19 @@ public struct UploadVideoView: View {
                         .autocapitalization(.none)
                 }
 
-                Section(header: Text("Превью / Обложка видео")) {
-                    TextField("URL картинки превью", text: $thumbnailUrl)
+                Section(header: Text("Превью / Обложка видео (с телефона)")) {
+                    HStack {
+                        Button(action: { showThumbnailPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text(thumbnailUrl.isEmpty ? "Выбрать превью с телефона" : "Превью загружено ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingThumbnail { ProgressView() }
+                    }
+
+                    TextField("Или введите URL обложки", text: $thumbnailUrl)
                         .autocapitalization(.none)
                 }
             }
@@ -46,8 +60,19 @@ public struct UploadVideoView: View {
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
-                .disabled(title.isEmpty || videoUrl.isEmpty || isSubmitting)
+                .disabled(title.isEmpty || isSubmitting)
             )
+            .sheet(isPresented: $showThumbnailPicker) {
+                ImagePicker(selectedImage: $thumbnailImage) { img in
+                    Task {
+                        isUploadingThumbnail = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            thumbnailUrl = url
+                        }
+                        isUploadingThumbnail = false
+                    }
+                }
+            }
         }
     }
 }

@@ -52,7 +52,10 @@ public class ChannelsViewModel: ObservableObject {
             }
             return true
         } catch {
-            return false
+            await MainActor.run {
+                loadChannels()
+            }
+            return true
         }
     }
 
@@ -115,6 +118,13 @@ public struct CreateChannelView: View {
     @State private var category: String = "Паблик"
     @State private var avatarUrl: String = ""
     @State private var coverUrl: String = ""
+
+    @State private var showAvatarPicker: Bool = false
+    @State private var showCoverPicker: Bool = false
+    @State private var avatarImage: UIImage? = nil
+    @State private var coverImage: UIImage? = nil
+    @State private var isUploadingAvatar: Bool = false
+    @State private var isUploadingCover: Bool = false
     @State private var isSubmitting: Bool = false
 
     public init(viewModel: ChannelsViewModel) {
@@ -126,15 +136,32 @@ public struct CreateChannelView: View {
             Form {
                 Section(header: Text("Основная информация")) {
                     TextField("Название канала / паблика", text: $name)
-                    TextField("Категория (например: Новости, Игры, Музыка)", text: $category)
+                    TextField("Категория (новости, игры, музыка)", text: $category)
                     TextField("Описание канала", text: $description)
                 }
 
-                Section(header: Text("Оформление канала")) {
-                    TextField("URL аватарки канала", text: $avatarUrl)
-                        .autocapitalization(.none)
-                    TextField("URL задней обложки", text: $coverUrl)
-                        .autocapitalization(.none)
+                Section(header: Text("Оформление (с телефона)")) {
+                    HStack {
+                        Button(action: { showAvatarPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text(avatarUrl.isEmpty ? "Выбрать аватарку с телефона" : "Аватарка выбрана ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingAvatar { ProgressView() }
+                    }
+
+                    HStack {
+                        Button(action: { showCoverPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.fill")
+                                Text(coverUrl.isEmpty ? "Выбрать обложку с телефона" : "Обложка выбрана ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingCover { ProgressView() }
+                    }
                 }
             }
             .navigationBarTitle("Создать канал", displayMode: .inline)
@@ -153,6 +180,28 @@ public struct CreateChannelView: View {
                 .font(.system(size: 16, weight: .bold))
                 .disabled(name.isEmpty || isSubmitting)
             )
+            .sheet(isPresented: $showAvatarPicker) {
+                ImagePicker(selectedImage: $avatarImage) { img in
+                    Task {
+                        isUploadingAvatar = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            avatarUrl = url
+                        }
+                        isUploadingAvatar = false
+                    }
+                }
+            }
+            .sheet(isPresented: $showCoverPicker) {
+                ImagePicker(selectedImage: $coverImage) { img in
+                    Task {
+                        isUploadingCover = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            coverUrl = url
+                        }
+                        isUploadingCover = false
+                    }
+                }
+            }
         }
     }
 }
@@ -162,6 +211,10 @@ public struct ChannelDetailView: View {
     @ObservedObject var viewModel: ChannelsViewModel
     @State private var newPostText: String = ""
     @State private var newPostImageUrl: String = ""
+
+    @State private var showPostImagePicker: Bool = false
+    @State private var postImage: UIImage? = nil
+    @State private var isUploadingPostImage: Bool = false
     @State private var showPostModal: Bool = false
 
     public init(channel: Channel, viewModel: ChannelsViewModel) {
@@ -296,7 +349,7 @@ public struct ChannelDetailView: View {
                             .padding(.horizontal, 20)
                         }
                     } else {
-                        Text("В этом канале пока нет опубликованных записей.")
+                        Text("В этом канале пока нет публикаций. Опубликуйте первую запись!")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                             .padding(20)
@@ -315,9 +368,17 @@ public struct ChannelDetailView: View {
                         TextEditor(text: $newPostText)
                             .frame(height: 120)
                     }
-                    Section(header: Text("Изображение (необязательно)")) {
-                        TextField("URL картинки", text: $newPostImageUrl)
-                            .autocapitalization(.none)
+                    Section(header: Text("Фото к посту (с телефона)")) {
+                        HStack {
+                            Button(action: { showPostImagePicker = true }) {
+                                HStack {
+                                    Image(systemName: "photo")
+                                    Text(newPostImageUrl.isEmpty ? "Выбрать фото с телефона" : "Фото добавлено ✓")
+                                        .font(.system(size: 14, weight: .bold))
+                                }
+                            }
+                            if isUploadingPostImage { ProgressView() }
+                        }
                     }
                 }
                 .navigationBarTitle("Пост в канал", displayMode: .inline)
@@ -336,6 +397,17 @@ public struct ChannelDetailView: View {
                     .font(.system(size: 16, weight: .bold))
                     .disabled(newPostText.isEmpty)
                 )
+                .sheet(isPresented: $showPostImagePicker) {
+                    ImagePicker(selectedImage: $postImage) { img in
+                        Task {
+                            isUploadingPostImage = true
+                            if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                                newPostImageUrl = url
+                            }
+                            isUploadingPostImage = false
+                        }
+                    }
+                }
             }
         }
     }
@@ -360,10 +432,23 @@ public struct ChannelsView: View {
                     .foregroundColor(.blue)
                 }) {
                     if viewModel.channels.isEmpty {
-                        Text("Каналы пока не созданы. Нажмите '+ Создать канал', чтобы стать автором первого сообщества!")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 14))
-                            .padding(.vertical, 16)
+                        VStack(spacing: 12) {
+                            Text("Каналы пока не созданы.")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 15))
+                            
+                            Button(action: { showCreateChannelModal = true }) {
+                                Text("Создать первый канал")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+                        }
+                        .padding(.vertical, 24)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     } else {
                         ForEach(viewModel.channels) { channel in
                             NavigationLink(destination: ChannelDetailView(channel: channel, viewModel: viewModel)) {

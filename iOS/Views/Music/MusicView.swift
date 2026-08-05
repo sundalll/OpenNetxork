@@ -47,6 +47,9 @@ public struct UploadTrackView: View {
     @State private var album: String = ""
     @State private var audioUrl: String = ""
     @State private var coverUrl: String = ""
+    @State private var showCoverPicker: Bool = false
+    @State private var coverImage: UIImage? = nil
+    @State private var isUploadingCover: Bool = false
     @State private var isSubmitting: Bool = false
 
     public init(viewModel: MusicViewModel) {
@@ -57,8 +60,8 @@ public struct UploadTrackView: View {
         NavigationView {
             Form {
                 Section(header: Text("Информация о треке")) {
-                    TextField("Название трека (например: Moonlight)", text: $title)
-                    TextField("Исполнитель / Автор (например: Автор)", text: $artist)
+                    TextField("Название трека", text: $title)
+                    TextField("Исполнитель / Автор", text: $artist)
                     TextField("Альбом (необязательно)", text: $album)
                 }
 
@@ -67,8 +70,19 @@ public struct UploadTrackView: View {
                         .autocapitalization(.none)
                 }
 
-                Section(header: Text("Обложка трека")) {
-                    TextField("URL обложки (например: http://.../cover.jpg)", text: $coverUrl)
+                Section(header: Text("Обложка трека (с телефона)")) {
+                    HStack {
+                        Button(action: { showCoverPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text(coverUrl.isEmpty ? "Выбрать обложку с телефона" : "Обложка загружена ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingCover { ProgressView() }
+                    }
+
+                    TextField("Или введите URL обложки", text: $coverUrl)
                         .autocapitalization(.none)
                 }
             }
@@ -86,8 +100,19 @@ public struct UploadTrackView: View {
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
-                .disabled(title.isEmpty || artist.isEmpty || audioUrl.isEmpty || isSubmitting)
+                .disabled(title.isEmpty || artist.isEmpty || isSubmitting)
             )
+            .sheet(isPresented: $showCoverPicker) {
+                ImagePicker(selectedImage: $coverImage) { img in
+                    Task {
+                        isUploadingCover = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            coverUrl = url
+                        }
+                        isUploadingCover = false
+                    }
+                }
+            }
         }
     }
 }

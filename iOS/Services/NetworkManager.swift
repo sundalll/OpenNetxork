@@ -79,4 +79,21 @@ public class NetworkManager: ObservableObject {
         let data = try JSONSerialization.data(withJSONObject: jsonBody)
         return try await request(endpoint: endpoint, method: method, body: data)
     }
+
+    public func uploadImage(uiImage: UIImage) async throws -> String {
+        guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else {
+            throw NetworkError.decodingError("Ошибка сжатия изображения")
+        }
+        let base64String = imageData.base64EncodedString()
+        let body: [String: Any] = [
+            "base64_data": base64String,
+            "extension": "jpg"
+        ]
+        let response: APIResponse<[String: String]> = try await request(endpoint: "upload.php", method: "POST", jsonBody: body)
+        if response.success, let url = response.data?["url"] {
+            return url
+        } else {
+            throw NetworkError.serverError(response.message ?? "Ошибка загрузки фото")
+        }
+    }
 }

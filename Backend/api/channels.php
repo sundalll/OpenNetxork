@@ -1,4 +1,13 @@
 <?php
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 require_once __DIR__ . '/../db.php';
 
 $pdo = Database::getInstance();
@@ -44,10 +53,10 @@ if ($method === 'GET') {
             'id' => (int)$channel['id'],
             'user_id' => (int)$channel['user_id'],
             'name' => $channel['name'],
-            'description' => $channel['description'],
+            'description' => $channel['description'] ?? '',
             'avatar_url' => $channel['avatar_url'],
             'cover_url' => $channel['cover_url'],
-            'category' => $channel['category'],
+            'category' => $channel['category'] ?? 'Паблик',
             'subscribers_count' => (int)$channel['subscribers_count'],
             'is_verified' => (bool)$channel['is_verified'],
             'is_subscribed' => $isSubscribed,
@@ -72,10 +81,10 @@ if ($method === 'GET') {
                 'id' => (int)$c['id'],
                 'user_id' => (int)$c['user_id'],
                 'name' => $c['name'],
-                'description' => $c['description'],
+                'description' => $c['description'] ?? '',
                 'avatar_url' => $c['avatar_url'],
                 'cover_url' => $c['cover_url'],
-                'category' => $c['category'],
+                'category' => $c['category'] ?? 'Паблик',
                 'subscribers_count' => (int)$c['subscribers_count'],
                 'is_verified' => (bool)$c['is_verified'],
                 'is_subscribed' => (bool)$c['is_subscribed']
@@ -86,17 +95,23 @@ if ($method === 'GET') {
     }
 
 } elseif ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $action = $input['action'] ?? $_POST['action'] ?? 'subscribe';
-    $userId = (int)($input['user_id'] ?? $_POST['user_id'] ?? 1);
-    $channelId = (int)($input['channel_id'] ?? $_POST['channel_id'] ?? 0);
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode($rawInput, true);
+
+    if (!is_array($input)) {
+        $input = $_POST;
+    }
+
+    $action = $input['action'] ?? 'subscribe';
+    $userId = (int)($input['user_id'] ?? 1);
+    $channelId = (int)($input['channel_id'] ?? 0);
 
     if ($action === 'create') {
-        $name = trim($input['name'] ?? $_POST['name'] ?? '');
-        $description = trim($input['description'] ?? $_POST['description'] ?? '');
-        $category = trim($input['category'] ?? $_POST['category'] ?? 'Паблик');
-        $avatarUrl = trim($input['avatar_url'] ?? $_POST['avatar_url'] ?? '');
-        $coverUrl = trim($input['cover_url'] ?? $_POST['cover_url'] ?? '');
+        $name = trim($input['name'] ?? '');
+        $description = trim($input['description'] ?? '');
+        $category = trim($input['category'] ?? 'Паблик');
+        $avatarUrl = trim($input['avatar_url'] ?? '');
+        $coverUrl = trim($input['cover_url'] ?? '');
 
         if (empty($name)) {
             Database::sendResponse(false, "Укажите название канала", null, 400);
@@ -139,7 +154,7 @@ if ($method === 'GET') {
 
         // Проверка подписки
         $check = $pdo->prepare("SELECT 1 FROM channel_subscribers WHERE channel_id = ? AND user_id = ?");
-        $check->execute([$channelId, $userId]);
+        $check.execute([$channelId, $userId]);
         $exists = $check->fetch();
 
         if ($exists) {
@@ -154,7 +169,7 @@ if ($method === 'GET') {
         } else {
             // Подписка
             $sub = $pdo->prepare("INSERT INTO channel_subscribers (channel_id, user_id) VALUES (?, ?)");
-            $sub->execute([$channelId, $userId]);
+            $sub.execute([$channelId, $userId]);
 
             $inc = $pdo->prepare("UPDATE channels SET subscribers_count = subscribers_count + 1 WHERE id = ?");
             $inc->execute([$channelId]);
@@ -163,8 +178,8 @@ if ($method === 'GET') {
         }
 
     } elseif ($action === 'create_post') {
-        $text = trim($input['text'] ?? $_POST['text'] ?? '');
-        $imageUrl = trim($input['image_url'] ?? $_POST['image_url'] ?? '');
+        $text = trim($input['text'] ?? '');
+        $imageUrl = trim($input['image_url'] ?? '');
 
         if ($channelId <= 0 || empty($text)) {
             Database::sendResponse(false, "Укажите ID канала и текст записи", null, 400);

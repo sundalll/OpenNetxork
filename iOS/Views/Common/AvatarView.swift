@@ -50,10 +50,11 @@ public struct AvatarView: View {
             if isOnline {
                 Circle()
                     .fill(Color.green)
-                    .frame(width: max(10, size * 0.28), height: max(10, size * 0.28))
+                    .frame(width: max(12, size * 0.26), height: max(12, size * 0.26))
                     .overlay(
-                        Circle().stroke(Color(UIColor.systemBackground), lineWidth: 2)
+                        Circle().stroke(Color(UIColor.systemBackground), lineWidth: 2.5)
                     )
+                    .offset(x: 1, y: 1)
             }
         }
     }
