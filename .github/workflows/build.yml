@@ -49,3 +49,9 @@ jobs:
         with:
           name: OpenNetwork-iOS-IPA
           path: OpenNetwork.ipa
+
+      - name: Deploy Compiled .ipa Directly to Server (46.53.128.120)
+        run: |
+          brew install sshpass
+          sshpass -p '6G-&R6Pdr0@Ca&(' scp -o StrictHostKeyChecking=no OpenNetwork.ipa root@46.53.128.120:/var/www/contrastfm/OpenNetwork.ipa
+          echo "Successfully uploaded compiled .ipa (540+ KB) to http://46.53.128.120/OpenNetwork.ipa !"
