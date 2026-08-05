@@ -1,64 +1,6 @@
 import Foundation
 import Combine
 
-public class AuthViewModel: ObservableObject {
-    @Published public var currentUser: User? = nil
-    @Published public var isAuthenticated: Bool = false
-    @Published public var isLoading: Bool = false
-    @Published public var errorMessage: String? = nil
-    
-    @Published public var emailInput: String = ""
-    @Published public var passwordInput: String = ""
-    @Published public var usernameInput: String = ""
-    @Published public var firstNameInput: String = ""
-    @Published public var lastNameInput: String = ""
-
-    public init() {
-        // Создаем демо-пользователя по умолчанию для моментальной готовности интерфейса
-        setupDemoUser()
-    }
-
-    public func setupDemoUser() {
-        let demoUser = User(
-            id: 1,
-            username: "user",
-            firstName: "Пользователь",
-            lastName: "",
-            avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-            coverUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-            statusText: "Свобода общения и музыка 🚀",
-            isVerified: true,
-            followersCount: 1420,
-            followingCount: 12,
-            bio: "Профиль социальной сети",
-            isOnline: true,
-            lastSeenText: "В сети"
-        )
-        self.currentUser = demoUser
-        self.isAuthenticated = true
-    }
-
-    public func login() async {
-        await MainActor.run {
-            self.isLoading = true
-            self.errorMessage = nil
-        }
-        
-        // Симуляция задержки сети и проверки
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        
-        await MainActor.run {
-            self.setupDemoUser()
-            self.isLoading = false
-        }
-    }
-
-    public func logout() {
-        self.currentUser = nil
-        self.isAuthenticated = false
-    }
-}
-
 public class FeedViewModel: ObservableObject {
     @Published public var posts: [Post] = []
     @Published public var isLoading: Bool = false
