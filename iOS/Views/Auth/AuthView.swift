@@ -118,8 +118,20 @@ public struct AuthView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("LemSocial")
+            VStack(spacing: 12) {
+                if let logoUrl = URL(string: "http://46.53.128.120/Logo/murlika.png") {
+                    if #available(iOS 15.0, *) {
+                        AsyncImage(url: logoUrl) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            Color.clear
+                        }
+                        .frame(width: 100, height: 100)
+                        .cornerRadius(20)
+                    }
+                }
+
+                Text("Murlika")
                     .font(.system(size: 36, weight: .black))
                     .foregroundColor(.blue)
 

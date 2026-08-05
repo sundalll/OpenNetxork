@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>LemSocial</string>
+	<string>Murlika</string>
 	<key>CFBundleExecutable</key>
-	<string>LemSocial</string>
+	<string>Murlika</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.lemsocial.app</string>
+	<string>com.murlika.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>LemSocial</string>
+	<string>Murlika</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

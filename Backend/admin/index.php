@@ -28,10 +28,11 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LemSocial — Админ Панель</title>
+    <title>Murlika — Панель Администратора</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .login-card { background: #1e293b; border-radius: 16px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); text-align: center; }
+        .logo-img { width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; }
         h2 { margin-bottom: 24px; color: #38bdf8; }
         input[type="password"], input[type="text"] { width: 100%; padding: 14px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 14px; background: #0284c7; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
@@ -42,7 +43,8 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 </head>
 <body>
     <div class="login-card">
-        <h2>🛡️ LemSocial Admin</h2>
+        <img src="http://46.53.128.120/Logo/murlika.png" class="logo-img" alt="Murlika Logo">
+        <h2>🛡️ Murlika Admin</h2>
         <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
         <form method="POST">
             <input type="password" name="login_password" placeholder="Введите пароль администратора" required autocomplete="current-password" value="AdminOpenNetwork_2026!#Secured">
