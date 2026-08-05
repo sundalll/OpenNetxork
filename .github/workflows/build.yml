@@ -23,7 +23,7 @@ jobs:
       - name: Compile Swift Code & Validate Syntax
         run: |
           echo "Building Swift files for iOS..."
-          swiftc -v -target arm64-apple-ios13.0-simulator -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift iOS/Views/Common/*.swift iOS/Views/Feed/*.swift iOS/Views/Profile/*.swift iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift iOS/Views/Auth/*.swift iOS/Views/MainTabView.swift iOS/App/SocialNetworkApp.swift -parse-as-library -emit-library -o libSocialCore.dylib
+          swiftc -v -target arm64-apple-ios14.0-simulator -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) iOS/Models/*.swift iOS/Services/*.swift iOS/ViewModels/*.swift iOS/Views/Common/*.swift iOS/Views/Feed/*.swift iOS/Views/Profile/*.swift iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift iOS/Views/Auth/*.swift iOS/Views/MainTabView.swift iOS/App/SocialNetworkApp.swift -parse-as-library -emit-library -o libSocialCore.dylib
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

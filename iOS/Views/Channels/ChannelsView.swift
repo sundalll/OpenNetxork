@@ -54,7 +54,7 @@ public struct ChannelsView: View {
                 }
             }
             .listStyle(InsetGroupedListStyle())
-            .navigationTitle("Каналы")
+            .navigationBarTitle("Каналы")
         }
     }
 }

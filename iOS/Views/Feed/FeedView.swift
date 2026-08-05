@@ -128,7 +128,7 @@ public struct FeedView: View {
                 .padding(.bottom, 80)
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Главная лента")
+            .navigationBarTitle("Главная лента")
             .sheet(isPresented: $showCreatePostModal) {
                 CreatePostView(feedViewModel: feedViewModel, currentUser: currentUser)
             }

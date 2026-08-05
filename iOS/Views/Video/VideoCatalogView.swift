@@ -129,7 +129,7 @@ public struct VideoCatalogView: View {
                 .padding(.bottom, 80)
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Видео")
+            .navigationBarTitle("Видео")
         }
     }
 }

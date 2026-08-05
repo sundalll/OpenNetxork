@@ -190,7 +190,7 @@ public struct MusicView: View {
                 }
             }
             .listStyle(InsetGroupedListStyle())
-            .navigationTitle("Музыка")
+            .navigationBarTitle("Музыка")
         }
     }
 }

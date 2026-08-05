@@ -139,7 +139,7 @@ public struct ProfileView: View {
                 .padding(.bottom, 80)
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Профиль")
+            .navigationBarTitle("Профиль")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
