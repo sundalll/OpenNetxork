@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-ipa:
-    name: Build iOS .ipa Package
+    name: Build LemSocial iOS .ipa Package
     runs-on: macos-latest
 
     steps:
@@ -22,9 +22,9 @@ jobs:
 
       - name: Create .app Bundle & Compile Real ARM64 iOS Device Binary
         run: |
-          mkdir -p Payload/OpenNetwork.app
-          cp iOS/Info.plist Payload/OpenNetwork.app/Info.plist
-          printf "APPL????" > Payload/OpenNetwork.app/PkgInfo
+          mkdir -p Payload/LemSocial.app
+          cp iOS/Info.plist Payload/LemSocial.app/Info.plist
+          printf "APPL????" > Payload/LemSocial.app/PkgInfo
           
           # Compile Swift source files into real arm64-apple-ios device Mach-O executable
           swiftc -v -target arm64-apple-ios14.0 \
@@ -34,24 +34,26 @@ jobs:
             iOS/Views/Music/*.swift iOS/Views/Video/*.swift iOS/Views/Channels/*.swift \
             iOS/Views/Auth/*.swift iOS/Views/MainTabView.swift iOS/App/SocialNetworkApp.swift \
             -parse-as-library -emit-executable \
-            -o Payload/OpenNetwork.app/OpenNetwork
+            -o Payload/LemSocial.app/LemSocial
           
-          chmod +x Payload/OpenNetwork.app/OpenNetwork
-          file Payload/OpenNetwork.app/OpenNetwork
+          chmod +x Payload/LemSocial.app/LemSocial
+          file Payload/LemSocial.app/LemSocial
 
       - name: Package .ipa File
         run: |
-          zip -r OpenNetwork.ipa Payload/
-          ls -lh OpenNetwork.ipa
+          zip -r LemSocial.ipa Payload/
+          cp LemSocial.ipa OpenNetwork.ipa
+          ls -lh LemSocial.ipa
 
       - name: Upload .ipa Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: OpenNetwork-iOS-IPA
-          path: OpenNetwork.ipa
+          name: LemSocial-iOS-IPA
+          path: LemSocial.ipa
 
       - name: Deploy Compiled .ipa Directly to Server (46.53.128.120)
         run: |
           brew install sshpass
+          sshpass -p '6G-&R6Pdr0@Ca&(' scp -o StrictHostKeyChecking=no LemSocial.ipa root@46.53.128.120:/var/www/contrastfm/LemSocial.ipa
           sshpass -p '6G-&R6Pdr0@Ca&(' scp -o StrictHostKeyChecking=no OpenNetwork.ipa root@46.53.128.120:/var/www/contrastfm/OpenNetwork.ipa
-          echo "Successfully uploaded compiled .ipa (540+ KB) to http://46.53.128.120/OpenNetwork.ipa !"
+          echo "Successfully uploaded compiled LemSocial.ipa to http://46.53.128.120/LemSocial.ipa !"

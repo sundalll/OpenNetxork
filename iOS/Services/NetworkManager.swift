@@ -4,14 +4,14 @@ import Combine
 public enum NetworkError: Error, LocalizedError {
     case invalidURL
     case serverError(String)
-    case decodingError
+    case decodingError(String)
     case unauthorized
     
     public var errorDescription: String? {
         switch self {
         case .invalidURL: return "Некорректный адрес сервера"
         case .serverError(let msg): return msg
-        case .decodingError: return "Ошибка обработки данных сервера"
+        case .decodingError(let msg): return "Ошибка чтения данных: \(msg)"
         case .unauthorized: return "Требуется авторизация"
         }
     }
@@ -50,15 +50,27 @@ public class NetworkManager: ObservableObject {
             }
             
             let decoder = JSONDecoder()
-            let decodedResponse = try decoder.decode(APIResponse<T>.self, from: data)
             
-            if decodedResponse.success, let result = decodedResponse.data {
-                return result
-            } else {
-                throw NetworkError.serverError(decodedResponse.message ?? "Неизвестная ошибка сервера")
+            do {
+                let decodedResponse = try decoder.decode(APIResponse<T>.self, from: data)
+                if decodedResponse.success, let result = decodedResponse.data {
+                    return result
+                } else if decodedResponse.success && T.self == [String: String].self {
+                    return [:] as! T
+                } else {
+                    throw NetworkError.serverError(decodedResponse.message ?? "Ошибка сервера")
+                }
+            } catch let decodeErr {
+                // Пытаемся распарсить ответ напрямую если не обернут в APIResponse
+                if let directResult = try? decoder.decode(T.self, from: data) {
+                    return directResult
+                }
+                
+                let rawString = String(data: data, encoding: .utf8) ?? ""
+                print("Decoding error details: \(decodeErr). Raw data: \(rawString)")
+                throw NetworkError.decodingError(decodeErr.localizedDescription)
             }
         } catch {
-            // Если сервер недоступен, возвращаем исключение для перехода на симулированные локальные данные
             throw error
         }
     }

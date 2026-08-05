@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>OpenNetwork</string>
+	<string>LemSocial</string>
 	<key>CFBundleExecutable</key>
-	<string>OpenNetwork</string>
+	<string>LemSocial</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.opennetwork.socialapp</string>
+	<string>com.lemsocial.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>OpenNetwork</string>
+	<string>LemSocial</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

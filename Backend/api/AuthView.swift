@@ -119,7 +119,7 @@ public struct AuthView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                Text("LemSocial")
+                Text("OpenNetwork")
                     .font(.system(size: 36, weight: .black))
                     .foregroundColor(.blue)
 
