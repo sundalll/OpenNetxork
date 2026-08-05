@@ -194,8 +194,39 @@ public struct Video: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
+public struct ChannelPost: Identifiable, Codable, Equatable, Hashable {
+    public let id: Int
+    public let channelId: Int
+    public var text: String
+    public var imageUrl: String?
+    public var likesCount: Int
+    public var viewsCount: Int
+    public var createdAtFormatted: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case channelId = "channel_id"
+        case text
+        case imageUrl = "image_url"
+        case likesCount = "likes_count"
+        case viewsCount = "views_count"
+        case createdAtFormatted = "created_at_formatted"
+    }
+
+    public init(id: Int, channelId: Int, text: String, imageUrl: String? = nil, likesCount: Int = 0, viewsCount: Int = 1, createdAtFormatted: String = "Только что") {
+        self.id = id
+        self.channelId = channelId
+        self.text = text
+        self.imageUrl = imageUrl
+        self.likesCount = likesCount
+        self.viewsCount = viewsCount
+        self.createdAtFormatted = createdAtFormatted
+    }
+}
+
 public struct Channel: Identifiable, Codable, Equatable, Hashable {
     public let id: Int
+    public var userId: Int?
     public var name: String
     public var description: String
     public var avatarUrl: String?
@@ -204,9 +235,11 @@ public struct Channel: Identifiable, Codable, Equatable, Hashable {
     public var isSubscribed: Bool
     public var isVerified: Bool
     public var category: String
+    public var posts: [ChannelPost]?
 
     enum CodingKeys: String, CodingKey {
         case id
+        case userId = "user_id"
         case name
         case description
         case avatarUrl = "avatar_url"
@@ -215,10 +248,12 @@ public struct Channel: Identifiable, Codable, Equatable, Hashable {
         case isSubscribed = "is_subscribed"
         case isVerified = "is_verified"
         case category
+        case posts
     }
 
-    public init(id: Int, name: String, description: String, avatarUrl: String? = nil, coverUrl: String? = nil, subscribersCount: Int = 0, isSubscribed: Bool = false, isVerified: Bool = false, category: String = "Паблик") {
+    public init(id: Int, userId: Int? = 1, name: String, description: String, avatarUrl: String? = nil, coverUrl: String? = nil, subscribersCount: Int = 0, isSubscribed: Bool = false, isVerified: Bool = false, category: String = "Паблик", posts: [ChannelPost]? = []) {
         self.id = id
+        self.userId = userId
         self.name = name
         self.description = description
         self.avatarUrl = avatarUrl
@@ -227,6 +262,7 @@ public struct Channel: Identifiable, Codable, Equatable, Hashable {
         self.isSubscribed = isSubscribed
         self.isVerified = isVerified
         self.category = category
+        self.posts = posts
     }
 }
 
