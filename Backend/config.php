@@ -5,7 +5,6 @@ define('DB_NAME', 'social_network');
 define('DB_USER', 'social_user');
 define('DB_PASS', 'social_pass_123');
 
-header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
