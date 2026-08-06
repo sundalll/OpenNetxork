@@ -19,7 +19,7 @@ if (isset($_POST['login_btn']) || isset($_GET['quick_login'])) {
 
 if (isset($_GET['logout'])) {
     unset($_SESSION['admin_logged_in']);
-    header('Location: index.php');
+    header('Location: admin.php');
     exit;
 }
 
@@ -30,23 +30,23 @@ $id = (int)($_GET['id'] ?? 0);
 if ($action === 'toggle_verify' && $id > 0) {
     $stmt = $pdo->prepare("UPDATE users SET is_verified = IF(is_verified=1, 0, 1) WHERE id = ?");
     $stmt->execute([$id]);
-    header('Location: index.php?tab=users');
+    header('Location: admin.php?tab=users');
     exit;
 } elseif ($action === 'delete_user' && $id > 0) {
     $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
-    header('Location: index.php?tab=users');
+    header('Location: admin.php?tab=users');
     exit;
 } elseif ($action === 'delete_post' && $id > 0) {
     $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
-    header('Location: index.php?tab=posts');
+    header('Location: admin.php?tab=posts');
     exit;
 } elseif ($action === 'delete_track' && $id > 0) {
     $pdo->prepare("DELETE FROM tracks WHERE id = ?")->execute([$id]);
-    header('Location: index.php?tab=music');
+    header('Location: admin.php?tab=music');
     exit;
 } elseif ($action === 'delete_channel' && $id > 0) {
     $pdo->prepare("DELETE FROM channels WHERE id = ?")->execute([$id]);
-    header('Location: index.php?tab=channels');
+    header('Location: admin.php?tab=channels');
     exit;
 }
 
@@ -123,7 +123,7 @@ $tab = $_GET['tab'] ?? 'users';
 <body>
     <div class="header">
         <h1><img src="https://myrlika.bond/Logo/murlika.png" alt="Logo"> Murlika Admin Panel</h1>
-        <a href="index.php?logout=1" class="logout">Выйти 🚪</a>
+        <a href="admin.php?logout=1" class="logout">Выйти 🚪</a>
     </div>
 
     <div class="stats-grid">
@@ -134,11 +134,11 @@ $tab = $_GET['tab'] ?? 'users';
     </div>
 
     <div class="nav-tabs">
-        <a href="index.php?tab=users" class="tab-btn <?= $tab === 'users' ? 'active' : '' ?>">👥 Пользователи</a>
-        <a href="index.php?tab=posts" class="tab-btn <?= $tab === 'posts' ? 'active' : '' ?>">📝 Посты</a>
-        <a href="index.php?tab=music" class="tab-btn <?= $tab === 'music' ? 'active' : '' ?>">🎵 Музыка</a>
-        <a href="index.php?tab=channels" class="tab-btn <?= $tab === 'channels' ? 'active' : '' ?>">📢 Каналы</a>
-        <a href="index.php?tab=logs" class="tab-btn <?= $tab === 'logs' ? 'active' : '' ?>">📜 Логи действий</a>
+        <a href="admin.php?tab=users" class="tab-btn <?= $tab === 'users' ? 'active' : '' ?>">👥 Пользователи</a>
+        <a href="admin.php?tab=posts" class="tab-btn <?= $tab === 'posts' ? 'active' : '' ?>">📝 Посты</a>
+        <a href="admin.php?tab=music" class="tab-btn <?= $tab === 'music' ? 'active' : '' ?>">🎵 Музыка</a>
+        <a href="admin.php?tab=channels" class="tab-btn <?= $tab === 'channels' ? 'active' : '' ?>">📢 Каналы</a>
+        <a href="admin.php?tab=logs" class="tab-btn <?= $tab === 'logs' ? 'active' : '' ?>">📜 Логи действий</a>
     </div>
 
     <?php if ($tab === 'users'): ?>
@@ -156,10 +156,10 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><?= htmlspecialchars($u['status_text'] ?? '') ?></td>
                     <td><?= $u['is_verified'] ? '✅ Да' : '❌ Нет' ?></td>
                     <td>
-                        <a href="index.php?action=toggle_verify&id=<?= $u['id'] ?>" class="btn <?= $u['is_verified'] ? 'btn-gray' : 'btn-green' ?>">
+                        <a href="admin.php?action=toggle_verify&id=<?= $u['id'] ?>" class="btn <?= $u['is_verified'] ? 'btn-gray' : 'btn-green' ?>">
                             <?= $u['is_verified'] ? 'Снять галочку' : 'Выдать галочку' ?>
                         </a>
-                        <a href="index.php?action=delete_user&id=<?= $u['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить пользователя?')">Удалить</a>
+                        <a href="admin.php?action=delete_user&id=<?= $u['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить пользователя?')">Удалить</a>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -179,7 +179,7 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><?= !empty($p['image_url']) ? '<a href="'.htmlspecialchars($p['image_url']).'" target="_blank" style="color:#38bdf8;">🖼️ Посмотреть</a>' : 'Нет' ?></td>
                     <td>❤️ <?= $p['likes_count'] ?></td>
                     <td><?= $p['created_at'] ?></td>
-                    <td><a href="index.php?action=delete_post&id=<?= $p['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить пост?')">Удалить</a></td>
+                    <td><a href="admin.php?action=delete_post&id=<?= $p['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить пост?')">Удалить</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -198,7 +198,7 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><?= htmlspecialchars($t['artist']) ?></td>
                     <td><?= htmlspecialchars($t['album'] ?? '') ?></td>
                     <td><a href="<?= htmlspecialchars($t['audio_url']) ?>" target="_blank" style="color:#38bdf8;">Слушать 🎵</a></td>
-                    <td><a href="index.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
+                    <td><a href="admin.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -216,7 +216,7 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><b><?= htmlspecialchars($c['name']) ?></b></td>
                     <td><?= htmlspecialchars($c['category'] ?? '') ?></td>
                     <td>👥 <?= $c['subscribers_count'] ?></td>
-                    <td><a href="index.php?action=delete_channel&id=<?= $c['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить канал?')">Удалить</a></td>
+                    <td><a href="admin.php?action=delete_channel&id=<?= $c['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить канал?')">Удалить</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
