@@ -7,6 +7,7 @@ public struct PostCardView: View {
     public let onComment: () -> Void
     
     @ObservedObject private var playerManager = AudioPlayerManager.shared
+    @State private var showCopiedAlert: Bool = false
     
     public init(
         post: Post,
@@ -47,10 +48,24 @@ public struct PostCardView: View {
                     
                     Spacer()
                     
-                    Button(action: {}) {
+                    Menu {
+                        Button(action: {
+                            let randomSlug = String((0..<8).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! })
+                            let shareUrl = "https://myrlika.bond/post/\(post.id)_\(randomSlug)"
+                            UIPasteboard.general.string = shareUrl
+                            showCopiedAlert = true
+                        }) {
+                            Label("Скопировать ссылку (/post/...)", systemImage: "link")
+                        }
+
+                        Button(action: onRepost) {
+                            Label("Репостнуть на свою страницу", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    } label: {
                         Image(systemName: "ellipsis")
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.secondary)
-                            .padding(6)
+                            .padding(8)
                     }
                 }
             }
@@ -75,7 +90,7 @@ public struct PostCardView: View {
                             image
                                 .resizable()
                                 .scaledToFit()
-                                .cornerRadius(8)
+                                .cornerRadius(12)
                         } placeholder: {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.2))
@@ -86,7 +101,7 @@ public struct PostCardView: View {
                         Rectangle()
                             .fill(Color.gray.opacity(0.2))
                             .frame(height: 200)
-                            .cornerRadius(8)
+                            .cornerRadius(12)
                             .padding(.horizontal, 16)
                     }
                 } else if attachment.type == .audio {
@@ -204,5 +219,8 @@ public struct PostCardView: View {
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
+        .alert(isPresented: $showCopiedAlert) {
+            Alert(title: Text("Ссылка скопирована"), message: Text("Уникальная ссылка на пост скопирована в буфер обмена."), dismissButton: .default(Text("OK")))
+        }
     }
 }

@@ -4,6 +4,7 @@ public class MusicViewModel: ObservableObject {
     @Published public var tracks: [Track] = []
     @Published public var albums: [Album] = []
     @Published public var playlists: [Playlist] = []
+    @Published public var favoriteTracks: [Track] = []
     @Published public var isLoading: Bool = false
 
     public init() {
@@ -17,11 +18,32 @@ public class MusicViewModel: ObservableObject {
                 let fetchedTracks: [Track] = try await NetworkManager.shared.request(endpoint: "music.php")
                 await MainActor.run {
                     self.tracks = fetchedTracks
+                    self.extractAlbums()
                     self.isLoading = false
                 }
             } catch {
                 await MainActor.run { self.isLoading = false }
             }
+        }
+    }
+
+    private func extractAlbums() {
+        var albumDict: [String: [Track]] = [:]
+        for track in tracks {
+            if let albumName = track.albumName, !albumName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                albumDict[albumName, default: []].append(track)
+            }
+        }
+
+        self.albums = albumDict.enumerated().map { (index, item) in
+            Album(
+                id: index + 1,
+                title: item.key,
+                artist: item.value.first?.artist ?? "Исполнитель",
+                coverUrl: item.value.first?.coverUrl,
+                releaseYear: "2026",
+                tracks: item.value
+            )
         }
     }
 
@@ -39,6 +61,7 @@ public class MusicViewModel: ObservableObject {
             if response.success, let newTrack = response.data {
                 await MainActor.run {
                     self.tracks.insert(newTrack, at: 0)
+                    self.extractAlbums()
                 }
                 return true
             }
@@ -51,12 +74,38 @@ public class MusicViewModel: ObservableObject {
     public func toggleLike(track: Track) {
         if let idx = tracks.firstIndex(where: { $0.id == track.id }) {
             tracks[idx].isLiked.toggle()
+            if tracks[idx].isLiked {
+                if !favoriteTracks.contains(where: { $0.id == track.id }) {
+                    favoriteTracks.append(tracks[idx])
+                }
+            } else {
+                favoriteTracks.removeAll(where: { $0.id == track.id })
+            }
         }
     }
 
-    public func createPlaylist(name: String, description: String) {
-        let newPlaylist = Playlist(id: Int.random(in: 100...999), name: name, description: description)
+    public func createPlaylist(name: String, description: String, coverUrl: String?, isPublic: Bool) {
+        let randomSlug = String((0..<10).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! })
+        let shareUrl = isPublic ? "https://myrlika.bond/pl/\(randomSlug)" : nil
+
+        let newPlaylist = Playlist(
+            id: Int.random(in: 1000...9999),
+            name: name,
+            description: description,
+            coverUrl: coverUrl,
+            isPublic: isPublic,
+            shareUrl: shareUrl,
+            tracks: []
+        )
         playlists.insert(newPlaylist, at: 0)
+    }
+
+    public func addTrackToPlaylist(track: Track, playlistId: Int) {
+        if let idx = playlists.firstIndex(where: { $0.id == playlistId }) {
+            if !playlists[idx].tracks.contains(where: { $0.id == track.id }) {
+                playlists[idx].tracks.append(track)
+            }
+        }
     }
 }
 
@@ -138,13 +187,6 @@ public struct UploadTrackView: View {
                         }
                         if isUploadingAudio { ProgressView() }
                     }
-
-                    if !audioUrl.isEmpty {
-                        Text("Файл: \(audioUrl)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
                 }
 
                 Section(header: Text("Обложка трека (с телефона)")) {
@@ -168,9 +210,7 @@ public struct UploadTrackView: View {
                         isSubmitting = true
                         let success = await viewModel.uploadNewTrack(title: title, artist: artist, album: album, audioUrl: audioUrl, coverUrl: coverUrl)
                         isSubmitting = false
-                        if success {
-                            presentationMode.wrappedValue.dismiss()
-                        }
+                        if success { presentationMode.wrappedValue.dismiss() }
                     }
                 }
                 .font(.system(size: 16, weight: .bold))
@@ -198,6 +238,58 @@ public struct UploadTrackView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+public struct AddToPlaylistModalView: View {
+    @Environment(\.presentationMode) var presentationMode
+    public let track: Track
+    @ObservedObject var viewModel: MusicViewModel
+
+    public init(track: Track, viewModel: MusicViewModel) {
+        self.track = track
+        self.viewModel = viewModel
+    }
+
+    public var body: some View {
+        NavigationView {
+            List {
+                if viewModel.playlists.isEmpty {
+                    Text("У вас пока нет созданных плейлистов. Создайте плейлист во вкладке 'Плейлисты'!")
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 20)
+                } else {
+                    ForEach(viewModel.playlists) { playlist in
+                        Button(action: {
+                            viewModel.addTrackToPlaylist(track: track, playlistId: playlist.id)
+                            presentationMode.wrappedValue.dismiss()
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "music.note.list")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.blue)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(playlist.name)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.primary)
+                                    Text("\(playlist.tracks.count) треков • \(playlist.isPublic ? "Публичный 🌐" : "Приватный 🔒")")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+            }
+            .listStyle(InsetGroupedListStyle())
+            .navigationBarTitle("Добавить в плейлист", displayMode: .inline)
+            .navigationBarItems(trailing: Button("Закрыть") { presentationMode.wrappedValue.dismiss() })
         }
     }
 }
@@ -345,8 +437,16 @@ public struct MusicView: View {
     @State private var selectedSegment: Int = 0
     @State private var showUploadModal: Bool = false
     @State private var showCreatePlaylistModal: Bool = false
+    @State private var selectedTrackForPlaylist: Track? = nil
+
+    // Playlist form states
     @State private var newPlaylistName: String = ""
     @State private var newPlaylistDesc: String = ""
+    @State private var newPlaylistCoverUrl: String = ""
+    @State private var newPlaylistIsPublic: Bool = true
+    @State private var showPlaylistCoverPicker: Bool = false
+    @State private var playlistCoverImage: UIImage? = nil
+    @State private var isUploadingPlaylistCover: Bool = false
     @State private var searchText: String = ""
 
     var filteredTracks: [Track] {
@@ -438,9 +538,13 @@ public struct MusicView: View {
 
                                         Spacer()
 
-                                        Text(track.durationFormatted)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
+                                        Button(action: {
+                                            selectedTrackForPlaylist = track
+                                        }) {
+                                            Image(systemName: "plus.square.fill.on.square.fill")
+                                                .foregroundColor(.blue)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
 
                                         Button(action: {
                                             viewModel.toggleLike(track: track)
@@ -463,51 +567,195 @@ public struct MusicView: View {
                     List {
                         Section(header: Text("Музыкальные Альбомы")) {
                             if viewModel.albums.isEmpty {
-                                Text("Альбомы отсутствуют. Загрузите треки с указанием альбома!")
+                                Text("Альбомы отсутствуют. Загрузите треки с указанием названия альбома!")
                                     .foregroundColor(.secondary)
                                     .font(.system(size: 14))
                                     .padding(.vertical, 12)
+                            } else {
+                                ForEach(viewModel.albums) { album in
+                                    HStack(spacing: 14) {
+                                        Image(systemName: "opticaldisc")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(.purple)
+                                            .frame(width: 52, height: 52)
+                                            .background(Color.purple.opacity(0.15))
+                                            .cornerRadius(10)
+
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(album.title)
+                                                .font(.system(size: 16, weight: .bold))
+                                            Text("\(album.artist) • \(album.tracks.count) треков")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
                             }
                         }
                     }
                     .listStyle(InsetGroupedListStyle())
                 } else if selectedSegment == 2 {
-                    List {
-                        Section(header: HStack {
+                    VStack(spacing: 0) {
+                        HStack {
                             Text("Мои Плейлисты")
+                                .font(.system(size: 16, weight: .bold))
                             Spacer()
-                            Button("+ Создать") {
+                            Button(action: {
                                 showCreatePlaylistModal = true
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                        }) {
-                            ForEach(viewModel.playlists) { playlist in
-                                HStack(spacing: 14) {
-                                    Image(systemName: "music.note.list")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.blue)
-                                        .frame(width: 52, height: 52)
-                                        .background(Color.blue.opacity(0.15))
-                                        .cornerRadius(10)
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(playlist.name)
-                                            .font(.system(size: 16, weight: .bold))
-                                        Text(playlist.description)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
-                                    }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Создать плейлист")
                                 }
-                                .padding(.vertical, 4)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .cornerRadius(12)
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+
+                        List {
+                            if viewModel.playlists.isEmpty {
+                                Text("У вас пока нет созданных плейлистов. Нажмите 'Создать плейлист' вышe!")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14))
+                                    .padding(.vertical, 20)
+                            } else {
+                                ForEach(viewModel.playlists) { playlist in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack(spacing: 14) {
+                                            if let coverUrl = playlist.coverUrl, let url = URL(string: coverUrl) {
+                                                if #available(iOS 15.0, *) {
+                                                    AsyncImage(url: url) { img in
+                                                        img.resizable().scaledToFill()
+                                                    } placeholder: {
+                                                        Color.gray.opacity(0.3)
+                                                    }
+                                                    .frame(width: 56, height: 56)
+                                                    .cornerRadius(10)
+                                                } else {
+                                                    Image(systemName: "music.note.list")
+                                                        .frame(width: 56, height: 56)
+                                                        .background(Color.blue.opacity(0.15))
+                                                        .cornerRadius(10)
+                                                }
+                                            } else {
+                                                Image(systemName: "music.note.list")
+                                                    .font(.system(size: 24))
+                                                    .foregroundColor(.blue)
+                                                    .frame(width: 56, height: 56)
+                                                    .background(Color.blue.opacity(0.15))
+                                                    .cornerRadius(10)
+                                            }
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(playlist.name)
+                                                    .font(.system(size: 16, weight: .bold))
+                                                Text(playlist.description)
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(.secondary)
+                                                
+                                                HStack(spacing: 8) {
+                                                    Text(playlist.isPublic ? "🌐 Публичный" : "🔒 Приватный")
+                                                        .font(.system(size: 11, weight: .semibold))
+                                                        .foregroundColor(playlist.isPublic ? .green : .orange)
+
+                                                    Text("• \(playlist.tracks.count) треков")
+                                                        .font(.system(size: 11))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        }
+
+                                        if let shareUrl = playlist.shareUrl, playlist.isPublic {
+                                            HStack {
+                                                Text("Ссылка: \(shareUrl)")
+                                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                                    .foregroundColor(.blue)
+                                                    .lineLimit(1)
+                                                Spacer()
+                                                Button("Копировать") {
+                                                    UIPasteboard.general.string = shareUrl
+                                                }
+                                                .font(.system(size: 11, weight: .bold))
+                                            }
+                                            .padding(6)
+                                            .background(Color.blue.opacity(0.08))
+                                            .cornerRadius(6)
+                                        }
+                                    }
+                                    .padding(.vertical, 6)
+                                }
+                            }
+                        }
+                        .listStyle(InsetGroupedListStyle())
                     }
-                    .listStyle(InsetGroupedListStyle())
                 }
             }
             .navigationBarTitle("Музыка")
             .sheet(isPresented: $showUploadModal) {
                 UploadTrackView(viewModel: viewModel)
+            }
+            .sheet(item: $selectedTrackForPlaylist) { track in
+                AddToPlaylistModalView(track: track, viewModel: viewModel)
+            }
+            .sheet(isPresented: $showCreatePlaylistModal) {
+                NavigationView {
+                    Form {
+                        Section(header: Text("Параметры плейлиста")) {
+                            TextField("Название плейлиста", text: $newPlaylistName)
+                            TextField("Описание", text: $newPlaylistDesc)
+                            Toggle("Публичный доступ (по ссылке)", isOn: $newPlaylistIsPublic)
+                        }
+
+                        Section(header: Text("Обложка плейлиста (с телефона)")) {
+                            HStack {
+                                Button(action: { showPlaylistCoverPicker = true }) {
+                                    HStack {
+                                        Image(systemName: "photo")
+                                        Text(newPlaylistCoverUrl.isEmpty ? "Выбрать обложку с телефона" : "Обложка загружена ✓")
+                                            .font(.system(size: 14, weight: .bold))
+                                    }
+                                }
+                                if isUploadingPlaylistCover { ProgressView() }
+                            }
+                        }
+                    }
+                    .navigationBarTitle("Новый плейлист", displayMode: .inline)
+                    .navigationBarItems(
+                        leading: Button("Отмена") { showCreatePlaylistModal = false },
+                        trailing: Button("Создать") {
+                            viewModel.createPlaylist(
+                                name: newPlaylistName,
+                                description: newPlaylistDesc,
+                                coverUrl: newPlaylistCoverUrl.isEmpty ? nil : newPlaylistCoverUrl,
+                                isPublic: newPlaylistIsPublic
+                            )
+                            newPlaylistName = ""
+                            newPlaylistDesc = ""
+                            newPlaylistCoverUrl = ""
+                            showCreatePlaylistModal = false
+                        }
+                        .font(.system(size: 16, weight: .bold))
+                        .disabled(newPlaylistName.isEmpty)
+                    )
+                    .sheet(isPresented: $showPlaylistCoverPicker) {
+                        ImagePicker(selectedImage: $playlistCoverImage) { img in
+                            Task {
+                                isUploadingPlaylistCover = true
+                                if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                                    newPlaylistCoverUrl = url
+                                }
+                                isUploadingPlaylistCover = false
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -108,18 +108,24 @@ public struct Playlist: Identifiable, Codable, Equatable, Hashable {
     public var name: String
     public var description: String
     public var coverUrl: String?
+    public var isPublic: Bool
+    public var shareUrl: String?
     public var tracks: [Track]
 
     enum CodingKeys: String, CodingKey {
         case id, name, description, tracks
         case coverUrl = "cover_url"
+        case isPublic = "is_public"
+        case shareUrl = "share_url"
     }
 
-    public init(id: Int, name: String, description: String, coverUrl: String? = nil, tracks: [Track] = []) {
+    public init(id: Int, name: String, description: String, coverUrl: String? = nil, isPublic: Bool = true, shareUrl: String? = nil, tracks: [Track] = []) {
         self.id = id
         self.name = name
         self.description = description
         self.coverUrl = coverUrl
+        self.isPublic = isPublic
+        self.shareUrl = shareUrl
         self.tracks = tracks
     }
 }

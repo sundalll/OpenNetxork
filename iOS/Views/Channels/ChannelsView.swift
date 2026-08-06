@@ -3,6 +3,7 @@ import SwiftUI
 public class ChannelsViewModel: ObservableObject {
     @Published public var channels: [Channel] = []
     @Published public var selectedChannelDetails: Channel? = nil
+    @Published public var currentChannelSubscribers: [User] = []
     @Published public var isLoading: Bool = false
 
     public init() {
@@ -32,6 +33,40 @@ public class ChannelsViewModel: ObservableObject {
                     self.selectedChannelDetails = details
                 }
             } catch {}
+        }
+    }
+
+    public func fetchChannelSubscribers(channelId: Int) {
+        Task {
+            do {
+                let fetched: [User] = try await NetworkManager.shared.request(endpoint: "channels.php?action=subscribers&channel_id=\(channelId)")
+                await MainActor.run {
+                    self.currentChannelSubscribers = fetched
+                }
+            } catch {}
+        }
+    }
+
+    public func editChannel(channelId: Int, name: String, description: String, category: String, avatarUrl: String, coverUrl: String) async -> Bool {
+        let body: [String: Any] = [
+            "action": "edit",
+            "channel_id": channelId,
+            "name": name,
+            "description": description,
+            "category": category,
+            "avatar_url": avatarUrl,
+            "cover_url": coverUrl
+        ]
+
+        do {
+            let response: APIResponse<String> = try await NetworkManager.shared.request(endpoint: "channels.php", method: "POST", jsonBody: body)
+            await MainActor.run {
+                self.fetchChannelDetails(channelId: channelId)
+                self.loadChannels()
+            }
+            return response.success
+        } catch {
+            return false
         }
     }
 
@@ -108,6 +143,108 @@ public class ChannelsViewModel: ObservableObject {
             return false
         } catch {
             return false
+        }
+    }
+}
+
+public struct EditChannelView: View {
+    @Environment(\.presentationMode) var presentationMode
+    public let channel: Channel
+    @ObservedObject var viewModel: ChannelsViewModel
+
+    @State private var name: String
+    @State private var description: String
+    @State private var category: String
+    @State private var avatarUrl: String
+    @State private var coverUrl: String
+
+    @State private var showAvatarPicker: Bool = false
+    @State private var showCoverPicker: Bool = false
+    @State private var avatarImage: UIImage? = nil
+    @State private var coverImage: UIImage? = nil
+    @State private var isUploadingAvatar: Bool = false
+    @State private var isUploadingCover: Bool = false
+    @State private var isSubmitting: Bool = false
+
+    public init(channel: Channel, viewModel: ChannelsViewModel) {
+        self.channel = channel
+        self.viewModel = viewModel
+        _name = State(initialValue: channel.name)
+        _description = State(initialValue: channel.description)
+        _category = State(initialValue: channel.category)
+        _avatarUrl = State(initialValue: channel.avatarUrl ?? "")
+        _coverUrl = State(initialValue: channel.coverUrl ?? "")
+    }
+
+    public var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Параметры канала")) {
+                    TextField("Название канала", text: $name)
+                    TextField("Категория", text: $category)
+                    TextField("Описание", text: $description)
+                }
+
+                Section(header: Text("Аватарка и Обложка (с телефона)")) {
+                    HStack {
+                        Button(action: { showAvatarPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text(avatarUrl.isEmpty ? "Выбрать аватарку с телефона" : "Аватарка изменена ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingAvatar { ProgressView() }
+                    }
+
+                    HStack {
+                        Button(action: { showCoverPicker = true }) {
+                            HStack {
+                                Image(systemName: "photo.fill")
+                                Text(coverUrl.isEmpty ? "Выбрать обложку с телефона" : "Обложка изменена ✓")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                        if isUploadingCover { ProgressView() }
+                    }
+                }
+            }
+            .navigationBarTitle("Редактировать канал", displayMode: .inline)
+            .navigationBarItems(
+                leading: Button("Отмена") { presentationMode.wrappedValue.dismiss() },
+                trailing: Button("Сохранить") {
+                    Task {
+                        isSubmitting = true
+                        let success = await viewModel.editChannel(channelId: channel.id, name: name, description: description, category: category, avatarUrl: avatarUrl, coverUrl: coverUrl)
+                        isSubmitting = false
+                        if success { presentationMode.wrappedValue.dismiss() }
+                    }
+                }
+                .font(.system(size: 16, weight: .bold))
+                .disabled(name.isEmpty || isSubmitting)
+            )
+            .sheet(isPresented: $showAvatarPicker) {
+                ImagePicker(selectedImage: $avatarImage) { img in
+                    Task {
+                        isUploadingAvatar = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            avatarUrl = url
+                        }
+                        isUploadingAvatar = false
+                    }
+                }
+            }
+            .sheet(isPresented: $showCoverPicker) {
+                ImagePicker(selectedImage: $coverImage) { img in
+                    Task {
+                        isUploadingCover = true
+                        if let url = try? await NetworkManager.shared.uploadImage(uiImage: img) {
+                            coverUrl = url
+                        }
+                        isUploadingCover = false
+                    }
+                }
+            }
         }
     }
 }
@@ -222,6 +359,7 @@ public struct ChannelDetailView: View {
     @State private var postImage: UIImage? = nil
     @State private var isUploadingPostImage: Bool = false
     @State private var showPostModal: Bool = false
+    @State private var showEditChannelModal: Bool = false
     @State private var showSubscribersModal: Bool = false
 
     public init(channel: Channel, viewModel: ChannelsViewModel, currentUser: User? = nil) {
@@ -230,8 +368,12 @@ public struct ChannelDetailView: View {
         self.currentUser = currentUser
     }
 
+    private var displayChannel: Channel {
+        viewModel.selectedChannelDetails ?? channel
+    }
+
     private var isCreator: Bool {
-        if let current = currentUser, let ownerId = channel.userId {
+        if let current = currentUser, let ownerId = displayChannel.userId {
             return current.id == ownerId
         }
         return false
@@ -242,7 +384,7 @@ public struct ChannelDetailView: View {
             VStack(spacing: 0) {
                 // Header / Cover
                 ZStack(alignment: .bottomLeading) {
-                    if let coverUrl = channel.coverUrl, let url = URL(string: coverUrl) {
+                    if let coverUrl = displayChannel.coverUrl, let url = URL(string: coverUrl), !coverUrl.isEmpty {
                         if #available(iOS 15.0, *) {
                             AsyncImage(url: url) { img in
                                 img.resizable().scaledToFill()
@@ -261,7 +403,7 @@ public struct ChannelDetailView: View {
                     }
 
                     // Avatar Image
-                    AvatarView(urlString: channel.avatarUrl, size: 84)
+                    AvatarView(urlString: displayChannel.avatarUrl, size: 84)
                         .overlay(Circle().stroke(Color(UIColor.systemBackground), lineWidth: 4))
                         .offset(x: 20, y: 40)
                 }
@@ -272,17 +414,20 @@ public struct ChannelDetailView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
-                                Text(channel.name)
+                                Text(displayChannel.name)
                                     .font(.system(size: 22, weight: .bold))
-                                if channel.isVerified {
+                                if displayChannel.isVerified {
                                     Image(systemName: "checkmark.seal.fill")
                                         .foregroundColor(.blue)
                                         .font(.system(size: 18))
                                 }
                             }
 
-                            Button(action: { showSubscribersModal = true }) {
-                                Text("\(channel.category) • \(channel.subscribersCount) подписчиков")
+                            Button(action: {
+                                viewModel.fetchChannelSubscribers(channelId: displayChannel.id)
+                                showSubscribersModal = true
+                            }) {
+                                Text("\(displayChannel.category) • \(displayChannel.subscribersCount) подписчиков")
                                     .font(.system(size: 14))
                                     .foregroundColor(.blue)
                             }
@@ -291,29 +436,39 @@ public struct ChannelDetailView: View {
                         Spacer()
 
                         if isCreator {
-                            Text("Создатель ⭐")
-                                .font(.system(size: 13, weight: .bold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.orange.opacity(0.2))
-                                .foregroundColor(.orange)
-                                .cornerRadius(14)
+                            HStack(spacing: 8) {
+                                Button(action: { showEditChannelModal = true }) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.system(size: 15))
+                                        .padding(8)
+                                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                                        .cornerRadius(12)
+                                }
+
+                                Text("Создатель ⭐")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.orange.opacity(0.2))
+                                    .foregroundColor(.orange)
+                                    .cornerRadius(14)
+                            }
                         } else {
                             Button(action: {
-                                viewModel.toggleSubscribe(channel: channel)
+                                viewModel.toggleSubscribe(channel: displayChannel)
                             }) {
-                                Text(channel.isSubscribed ? "Вы подписаны" : "Подписаться")
+                                Text(displayChannel.isSubscribed ? "Вы подписаны" : "Подписаться")
                                     .font(.system(size: 14, weight: .bold))
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
-                                    .background(channel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
-                                    .foregroundColor(channel.isSubscribed ? .primary : .white)
+                                    .background(displayChannel.isSubscribed ? Color(UIColor.systemGroupedBackground) : Color.blue)
+                                    .foregroundColor(displayChannel.isSubscribed ? .primary : .white)
                                     .cornerRadius(20)
                             }
                         }
                     }
 
-                    Text(channel.description)
+                    Text(displayChannel.description)
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
@@ -331,16 +486,23 @@ public struct ChannelDetailView: View {
                         Spacer()
 
                         if isCreator {
-                            Button("+ Написать пост") {
-                                showPostModal = true
+                            Button(action: { showPostModal = true }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "square.and.pencil")
+                                    Text("Создать запись")
+                                }
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue)
+                                .cornerRadius(12)
                             }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.blue)
                         }
                     }
                     .padding(.horizontal, 20)
 
-                    if let posts = viewModel.selectedChannelDetails?.posts, !posts.isEmpty {
+                    if let posts = displayChannel.posts, !posts.isEmpty {
                         ForEach(posts) { post in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(post.text)
@@ -379,7 +541,7 @@ public struct ChannelDetailView: View {
                             .padding(.horizontal, 20)
                         }
                     } else {
-                        Text(isCreator ? "В вашем канале пока нет публикаций. Напишите первую запись!" : "В этом канале пока нет публикаций.")
+                        Text(isCreator ? "В вашем канале пока нет публикаций. Напишите первую запись вышe!" : "В этом канале пока нет публикаций.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                             .padding(20)
@@ -387,12 +549,15 @@ public struct ChannelDetailView: View {
                 }
             }
         }
-        .navigationBarTitle(channel.name, displayMode: .inline)
+        .navigationBarTitle(displayChannel.name, displayMode: .inline)
         .onAppear {
             viewModel.fetchChannelDetails(channelId: channel.id)
         }
+        .sheet(isPresented: $showEditChannelModal) {
+            EditChannelView(channel: displayChannel, viewModel: viewModel)
+        }
         .sheet(isPresented: $showSubscribersModal) {
-            UserListSheetView(title: "Подписчики канала", users: [User.demoUser])
+            UserListSheetView(title: "Подписчики канала", users: viewModel.currentChannelSubscribers)
         }
         .sheet(isPresented: $showPostModal) {
             NavigationView {
@@ -428,7 +593,7 @@ public struct ChannelDetailView: View {
                         }
                     }
                     .font(.system(size: 16, weight: .bold))
-                    .disabled(newPostText.isEmpty)
+                    .disabled(newPostText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 )
                 .sheet(isPresented: $showPostImagePicker) {
                     ImagePicker(selectedImage: $postImage) { img in

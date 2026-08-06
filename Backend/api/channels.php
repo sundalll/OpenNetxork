@@ -19,6 +19,33 @@ $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if ($method === 'GET') {
     $userId = (int)($_GET['user_id'] ?? 1);
     $channelId = (int)($_GET['channel_id'] ?? 0);
+    $action = $_GET['action'] ?? '';
+
+    if ($action === 'subscribers' && $channelId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT u.id, u.username, u.first_name, u.last_name, u.avatar_url, u.status_text, u.is_verified, u.is_online
+            FROM channel_subscribers cs
+            JOIN users u ON cs.user_id = u.id
+            WHERE cs.channel_id = ?
+        ");
+        $stmt->execute([$channelId]);
+        $users = $stmt->fetchAll();
+
+        $result = array_map(function($u) {
+            return [
+                'id' => (int)$u['id'],
+                'username' => $u['username'],
+                'first_name' => $u['first_name'],
+                'last_name' => $u['last_name'],
+                'avatar_url' => $u['avatar_url'],
+                'status_text' => $u['status_text'] ?? '',
+                'is_verified' => (bool)$u['is_verified'],
+                'is_online' => (bool)$u['is_online']
+            ];
+        }, $users);
+
+        Database::sendResponse(true, "Список подписчиков получен", $result);
+    }
 
     if ($channelId > 0) {
         $stmt = $pdo->prepare("SELECT * FROM channels WHERE id = ?");
@@ -127,7 +154,7 @@ if ($method === 'GET') {
         }
 
         if (empty($avatarUrl)) {
-            $avatarUrl = "http://46.53.128.120/Logo/murlika.png";
+            $avatarUrl = "https://myrlika.bond/Logo/murlika.png";
         }
 
         $stmt = $pdo->prepare("
@@ -154,6 +181,30 @@ if ($method === 'GET') {
         ];
 
         Database::sendResponse(true, "Канал успешно создан!", $newChannel);
+
+    } elseif ($action === 'edit') {
+        if ($channelId <= 0) {
+            Database::sendResponse(false, "Укажите ID канала", null, 400);
+        }
+
+        $name = trim($input['name'] ?? '');
+        $description = trim($input['description'] ?? '');
+        $category = trim($input['category'] ?? 'Паблик');
+        $avatarUrl = trim($input['avatar_url'] ?? '');
+        $coverUrl = trim($input['cover_url'] ?? '');
+
+        $stmt = $pdo->prepare("
+            UPDATE channels
+            SET name = COALESCE(NULLIF(?, ''), name),
+                description = COALESCE(NULLIF(?, ''), description),
+                category = COALESCE(NULLIF(?, ''), category),
+                avatar_url = COALESCE(NULLIF(?, ''), avatar_url),
+                cover_url = COALESCE(NULLIF(?, ''), cover_url)
+            WHERE id = ?
+        ");
+        $stmt->execute([$name, $description, $category, $avatarUrl, $coverUrl, $channelId]);
+
+        Database::sendResponse(true, "Канал успешно обновлен!", null);
 
     } elseif ($action === 'toggle_subscribe') {
         if ($channelId <= 0) {

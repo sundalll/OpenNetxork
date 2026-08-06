@@ -1,5 +1,93 @@
 import SwiftUI
 
+public struct CommentsModalView: View {
+    @Environment(\.presentationMode) var presentationMode
+    public let post: Post
+    public let currentUser: User
+    @State private var comments: [Comment] = []
+    @State private var commentText: String = ""
+    @State private var isLoading: Bool = false
+
+    public init(post: Post, currentUser: User) {
+        self.post = post
+        self.currentUser = currentUser
+    }
+
+    public var body: some View {
+        NavigationView {
+            VStack {
+                List {
+                    Section(header: Text("Запись")) {
+                        Text(post.text)
+                            .font(.system(size: 15))
+                    }
+
+                    Section(header: Text("Комментарии (\(comments.count))")) {
+                        if comments.isEmpty {
+                            Text("Пока нет комментариев. Напишите первый комментарий!")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 14))
+                                .padding(.vertical, 12)
+                        } else {
+                            ForEach(comments) { comment in
+                                HStack(alignment: .top, spacing: 10) {
+                                    AvatarView(urlString: comment.author.avatarUrl, size: 36)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text(comment.author.fullName)
+                                                .font(.system(size: 14, weight: .bold))
+                                            Spacer()
+                                            Text(comment.createdAtFormatted)
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Text(comment.text)
+                                            .font(.system(size: 14))
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+                .listStyle(InsetGroupedListStyle())
+
+                // Input bar
+                HStack(spacing: 12) {
+                    TextField("Написать комментарий...", text: $commentText)
+                        .padding(10)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(20)
+
+                    Button(action: {
+                        let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        let newComment = Comment(
+                            id: Int.random(in: 1000...9999),
+                            postId: post.id,
+                            author: currentUser,
+                            text: trimmed,
+                            createdAtFormatted: "Только что"
+                        )
+                        comments.append(newComment)
+                        commentText = ""
+                    }) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                    }
+                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color(UIColor.systemBackground))
+            }
+            .navigationBarTitle("Комментарии", displayMode: .inline)
+            .navigationBarItems(trailing: Button("Закрыть") { presentationMode.wrappedValue.dismiss() })
+        }
+    }
+}
+
 public struct CreatePostView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var feedViewModel: FeedViewModel
@@ -25,7 +113,7 @@ public struct CreatePostView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(currentUser.fullName)
                             .font(.system(size: 16, weight: .bold))
-                        Text("Видно всем друзьям")
+                        Text("Видно всем подписчикам")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
@@ -38,7 +126,7 @@ public struct CreatePostView: View {
                     .padding(.horizontal, 12)
 
                 if !imageUrl.isEmpty {
-                    Text("Фото прикреплено ✓")
+                    Text("Фотография успешно прикреплена к посту ✓")
                         .font(.caption)
                         .foregroundColor(.blue)
                         .padding(.horizontal, 16)
@@ -52,7 +140,7 @@ public struct CreatePostView: View {
                             Image(systemName: "photo.on.rectangle")
                                 .font(.system(size: 22))
                                 .foregroundColor(.blue)
-                            Text("Фото с телефона")
+                            Text("Выбрать фото с телефона")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.blue)
                         }
@@ -71,7 +159,7 @@ public struct CreatePostView: View {
                     presentationMode.wrappedValue.dismiss()
                 },
                 trailing: Button("Опубликовать") {
-                    feedViewModel.createPost(author: currentUser, text: textInput)
+                    feedViewModel.createPost(author: currentUser, text: textInput, imageUrl: imageUrl)
                     presentationMode.wrappedValue.dismiss()
                 }
                 .font(.system(size: 16, weight: .bold))
@@ -97,6 +185,7 @@ public struct FeedView: View {
     public let currentUser: User
     
     @State private var showCreatePostModal: Bool = false
+    @State private var selectedPostForComments: Post? = nil
     @State private var searchText: String = ""
     @State private var selectedFeedSegment: Int = 0 // 0: Рекомендации, 1: Подписки
 
@@ -181,7 +270,7 @@ public struct FeedView: View {
                                     feedViewModel.toggleRepost(for: post)
                                 },
                                 onComment: {
-                                    // комментарии
+                                    selectedPostForComments = post
                                 }
                             )
                         }
@@ -193,6 +282,9 @@ public struct FeedView: View {
             .navigationBarTitle("Главная лента")
             .sheet(isPresented: $showCreatePostModal) {
                 CreatePostView(feedViewModel: feedViewModel, currentUser: currentUser)
+            }
+            .sheet(item: $selectedPostForComments) { targetPost in
+                CommentsModalView(post: targetPost, currentUser: currentUser)
             }
         }
     }
