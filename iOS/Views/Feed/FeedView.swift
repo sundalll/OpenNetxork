@@ -300,6 +300,9 @@ public struct FeedView: View {
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
             .navigationBarTitle("Главная лента")
+            .onAppear {
+                feedViewModel.loadFeed()
+            }
             .sheet(isPresented: $showCreatePostModal) {
                 CreatePostView(feedViewModel: feedViewModel, currentUser: currentUser)
             }

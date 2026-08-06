@@ -13,7 +13,7 @@ require_once __DIR__ . '/../db.php';
 $pdo = Database::getInstance();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
-// Функция логгирования абсолютно каждого действия пользователя в базу данных MariaDB
+// Логирование любого действия в базу данных MariaDB
 function logUserAction($pdo, $userId, $actionType, $details = '') {
     try {
         $stmt = $pdo->prepare("INSERT INTO user_activity_logs (user_id, action_type, details) VALUES (?, ?, ?)");
@@ -30,7 +30,7 @@ if ($method === 'GET') {
             SELECT c.id, c.post_id, c.text, c.created_at,
                    u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified, u.is_online
             FROM post_comments c
-            JOIN users u ON c.user_id = u.id
+            LEFT JOIN users u ON c.user_id = u.id
             WHERE c.post_id = ?
             ORDER BY c.id ASC
         ");
@@ -42,13 +42,13 @@ if ($method === 'GET') {
                 'id' => (int)$c['id'],
                 'post_id' => (int)$c['post_id'],
                 'author' => [
-                    'id' => (int)$c['author_id'],
-                    'username' => $c['username'],
-                    'first_name' => $c['first_name'],
-                    'last_name' => $c['last_name'],
-                    'avatar_url' => $c['avatar_url'],
-                    'is_verified' => (bool)$c['is_verified'],
-                    'is_online' => (bool)$c['is_online']
+                    'id' => (int)($c['author_id'] ?? 1),
+                    'username' => $c['username'] ?? 'user',
+                    'first_name' => $c['first_name'] ?? 'Пользователь',
+                    'last_name' => $c['last_name'] ?? '',
+                    'avatar_url' => $c['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
+                    'is_verified' => (bool)($c['is_verified'] ?? false),
+                    'is_online' => true
                 ],
                 'text' => $c['text'],
                 'created_at_formatted' => date('d.m.Y в H:i', strtotime($c['created_at']))
@@ -58,14 +58,14 @@ if ($method === 'GET') {
         Database::sendResponse(true, "Комментарии загружены", $result);
     }
 
-    // Запрос ленты публикаций из базы данных MariaDB
+    // Запрос ленты новостей со 100% гарантией возврата постов (LEFT JOIN)
     $stmt = $pdo->prepare("
         SELECT 
             p.id, p.user_id, p.text, p.image_url, p.audio_url, p.video_url,
             p.likes_count, p.reposts_count, p.comments_count, p.views_count, p.created_at,
             u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified, u.status_text, u.is_online
         FROM posts p
-        JOIN users u ON p.user_id = u.id
+        LEFT JOIN users u ON p.user_id = u.id
         ORDER BY p.created_at DESC
         LIMIT 100
     ");
@@ -92,17 +92,23 @@ if ($method === 'GET') {
             ];
         }
 
+        $authorId = (int)($row['author_id'] ?? $row['user_id'] ?? 1);
+        $username = !empty($row['username']) ? $row['username'] : 'user_' . $authorId;
+        $firstName = !empty($row['first_name']) ? $row['first_name'] : 'Пользователь';
+        $lastName = $row['last_name'] ?? '';
+        $avatarUrl = !empty($row['avatar_url']) ? $row['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png';
+
         $posts[] = [
             'id' => (int)$row['id'],
             'author' => [
-                'id' => (int)$row['author_id'],
-                'username' => $row['username'],
-                'first_name' => $row['first_name'],
-                'last_name' => $row['last_name'],
-                'avatar_url' => $row['avatar_url'],
+                'id' => $authorId,
+                'username' => $username,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'avatar_url' => $avatarUrl,
                 'status_text' => $row['status_text'] ?? '',
-                'is_verified' => (bool)$row['is_verified'],
-                'is_online' => (bool)($row['is_online'] ?? true)
+                'is_verified' => (bool)($row['is_verified'] ?? false),
+                'is_online' => true
             ],
             'text' => $row['text'],
             'attachments' => $attachments,
@@ -132,7 +138,7 @@ if ($method === 'GET') {
     $imageUrl = trim($input['image_url'] ?? '');
     $postId = (int)($input['post_id'] ?? 0);
 
-    // Авто-подбор живого пользователя если ID не найден
+    // Подбор первого живого пользователя из БД при сбое ID
     $userCheck = $pdo->prepare("SELECT id FROM users WHERE id = ?");
     $userCheck->execute([$userId]);
     if (!$userCheck->fetch()) {
@@ -156,7 +162,6 @@ if ($method === 'GET') {
 
         logUserAction($pdo, $userId, 'create_comment', ['post_id' => $postId, 'comment_id' => $commentId, 'text' => $text]);
 
-        // Автор комментария
         $uStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, is_verified, is_online FROM users WHERE id = ?");
         $uStmt->execute([$userId]);
         $u = $uStmt->fetch();
@@ -165,13 +170,13 @@ if ($method === 'GET') {
             'id' => $commentId,
             'post_id' => $postId,
             'author' => [
-                'id' => (int)$u['id'],
-                'username' => $u['username'],
-                'first_name' => $u['first_name'],
-                'last_name' => $u['last_name'],
-                'avatar_url' => $u['avatar_url'],
-                'is_verified' => (bool)$u['is_verified'],
-                'is_online' => (bool)$u['is_online']
+                'id' => (int)($u['id'] ?? $userId),
+                'username' => $u['username'] ?? 'user',
+                'first_name' => $u['first_name'] ?? 'Пользователь',
+                'last_name' => $u['last_name'] ?? '',
+                'avatar_url' => $u['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
+                'is_verified' => (bool)($u['is_verified'] ?? false),
+                'is_online' => true
             ],
             'text' => $text,
             'created_at_formatted' => 'Только что'
@@ -195,7 +200,6 @@ if ($method === 'GET') {
         Database::sendResponse(true, "Пост опубликован на вашей странице", ['is_reposted' => true]);
 
     } else {
-        // Создание нового поста в ленту (публикации)
         if (empty($text) && empty($imageUrl)) {
             Database::sendResponse(false, "Текст поста или изображение не могут быть пустыми", null, 400);
         }
@@ -206,7 +210,6 @@ if ($method === 'GET') {
 
         logUserAction($pdo, $userId, 'create_post', ['post_id' => $newPostId, 'text' => $text, 'image_url' => $imageUrl]);
 
-        // Получаем созданный пост вместе с автором из MariaDB
         $userStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, status_text, is_verified, is_online FROM users WHERE id = ?");
         $userStmt->execute([$userId]);
         $author = $userStmt->fetch();
@@ -214,14 +217,14 @@ if ($method === 'GET') {
         $newPost = [
             'id' => $newPostId,
             'author' => [
-                'id' => (int)$author['id'],
-                'username' => $author['username'],
-                'first_name' => $author['first_name'],
-                'last_name' => $author['last_name'],
-                'avatar_url' => $author['avatar_url'],
+                'id' => (int)($author['id'] ?? $userId),
+                'username' => $author['username'] ?? 'user',
+                'first_name' => $author['first_name'] ?? 'Пользователь',
+                'last_name' => $author['last_name'] ?? '',
+                'avatar_url' => $author['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
                 'status_text' => $author['status_text'] ?? '',
-                'is_verified' => (bool)$author['is_verified'],
-                'is_online' => (bool)($author['is_online'] ?? true)
+                'is_verified' => (bool)($author['is_verified'] ?? false),
+                'is_online' => true
             ],
             'text' => $text,
             'attachments' => !empty($imageUrl) ? [['id' => 'img_' . $newPostId, 'type' => 'image', 'url' => $imageUrl]] : [],
