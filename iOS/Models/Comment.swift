@@ -28,6 +28,17 @@ public struct Comment: Identifiable, Codable, Equatable, Hashable {
         self.isLiked = isLiked
         self.createdAtFormatted = createdAtFormatted
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        postId = try container.decodeIfPresent(Int.self, forKey: .postId) ?? 0
+        author = try container.decode(User.self, forKey: .author)
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        likesCount = try container.decodeIfPresent(Int.self, forKey: .likesCount) ?? 0
+        isLiked = try container.decodeIfPresent(Bool.self, forKey: .isLiked) ?? false
+        createdAtFormatted = try container.decodeIfPresent(String.self, forKey: .createdAtFormatted) ?? "Только что"
+    }
 }
 
 public struct Track: Identifiable, Codable, Equatable, Hashable {

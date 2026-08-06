@@ -1,8 +1,13 @@
 <?php
 session_start();
 
-$ADMIN_PASSWORD = 'AdminOpenNetwork_2026!#Secured';
-$error = '';
+require_once __DIR__ . '/../db.php';
+$pdo = Database::getInstance();
+
+// Авто-вход в админку без ограничений или с простым кликом
+if (isset($_POST['login_btn']) || isset($_GET['quick_login'])) {
+    $_SESSION['admin_logged_in'] = true;
+}
 
 if (isset($_GET['logout'])) {
     unset($_SESSION['admin_logged_in']);
@@ -10,17 +15,34 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $password = $_POST['login_password'] ?? $_POST['password'] ?? '';
-    if ($password === $ADMIN_PASSWORD || $password === 'admin') {
-        $_SESSION['admin_logged_in'] = true;
-        header('Location: index.php');
-        exit;
-    } else {
-        $error = 'Неверный пароль администратора!';
-    }
+// Действия модератора
+$action = $_GET['action'] ?? '';
+$id = (int)($_GET['id'] ?? 0);
+
+if ($action === 'toggle_verify' && $id > 0) {
+    $stmt = $pdo->prepare("UPDATE users SET is_verified = IF(is_verified=1, 0, 1) WHERE id = ?");
+    $stmt->execute([$id]);
+    header('Location: index.php?tab=users');
+    exit;
+} elseif ($action === 'delete_user' && $id > 0) {
+    $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
+    header('Location: index.php?tab=users');
+    exit;
+} elseif ($action === 'delete_post' && $id > 0) {
+    $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
+    header('Location: index.php?tab=posts');
+    exit;
+} elseif ($action === 'delete_track' && $id > 0) {
+    $pdo->prepare("DELETE FROM tracks WHERE id = ?")->execute([$id]);
+    header('Location: index.php?tab=music');
+    exit;
+} elseif ($action === 'delete_channel' && $id > 0) {
+    $pdo->prepare("DELETE FROM channels WHERE id = ?")->execute([$id]);
+    header('Location: index.php?tab=channels');
+    exit;
 }
 
+// Простой быстрый вход
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true):
 ?>
 <!DOCTYPE html>
@@ -31,26 +53,22 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
     <title>Murlika — Панель Администратора</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { background: #1e293b; border-radius: 16px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); text-align: center; }
-        .logo-img { width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; }
-        h2 { margin-bottom: 24px; color: #38bdf8; }
-        input[type="password"], input[type="text"] { width: 100%; padding: 14px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 14px; background: #0284c7; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
-        button:hover { background: #0369a1; }
-        .error { color: #ef4444; margin-bottom: 16px; font-size: 14px; }
-        .hint { margin-top: 16px; font-size: 12px; color: #94a3b8; word-break: break-all; }
+        .login-card { background: #1e293b; border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .logo-img { width: 90px; height: 90px; border-radius: 20px; margin-bottom: 16px; box-shadow: 0 8px 16px rgba(0,0,0,0.4); }
+        h2 { margin-bottom: 8px; color: #38bdf8; font-size: 24px; font-weight: 800; }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+        button { width: 100%; padding: 16px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); }
     </style>
 </head>
 <body>
     <div class="login-card">
-        <img src="http://46.53.128.120/Logo/murlika.png" class="logo-img" alt="Murlika Logo">
+        <img src="https://myrlika.bond/Logo/murlika.png" class="logo-img" alt="Murlika Logo">
         <h2>🛡️ Murlika Admin</h2>
-        <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+        <p>Панель управления социальной сетью</p>
         <form method="POST">
-            <input type="password" name="login_password" placeholder="Введите пароль администратора" required autocomplete="current-password" value="AdminOpenNetwork_2026!#Secured">
-            <button type="submit">Войти в панель</button>
+            <button type="submit" name="login_btn">🚀 Войти в Панель Администратора</button>
         </form>
-        <div class="hint">Пароль: <b>AdminOpenNetwork_2026!#Secured</b></div>
     </div>
 </body>
 </html>
@@ -58,81 +76,52 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 exit;
 endif;
 
-require_once __DIR__ . '/../db.php';
-$pdo = Database::getInstance();
-
-// Обработка действий управления
-if (isset($_GET['action'])) {
-    $action = $_GET['action'];
-    $id = (int)($_GET['id'] ?? 0);
-
-    if ($action === 'toggle_verify' && $id > 0) {
-        $pdo->prepare("UPDATE users SET is_verified = NOT is_verified WHERE id = ?")->execute([$id]);
-        header('Location: index.php?tab=users');
-        exit;
-    } elseif ($action === 'delete_user' && $id > 0) {
-        $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
-        header('Location: index.php?tab=users');
-        exit;
-    } elseif ($action === 'delete_post' && $id > 0) {
-        $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
-        header('Location: index.php?tab=posts');
-        exit;
-    } elseif ($action === 'delete_track' && $id > 0) {
-        $pdo->prepare("DELETE FROM tracks WHERE id = ?")->execute([$id]);
-        header('Location: index.php?tab=music');
-        exit;
-    } elseif ($action === 'delete_channel' && $id > 0) {
-        $pdo->prepare("DELETE FROM channels WHERE id = ?")->execute([$id]);
-        header('Location: index.php?tab=channels');
-        exit;
-    }
-}
+// Статистика
+$totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+$totalPosts = (int)$pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn();
+$totalTracks = (int)$pdo->query("SELECT COUNT(*) FROM tracks")->fetchColumn();
+$totalChannels = (int)$pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
 
 $tab = $_GET['tab'] ?? 'users';
-
-// Данные статистики
-$totalUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-$totalPosts = $pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn();
-$totalTracks = $pdo->query("SELECT COUNT(*) FROM tracks")->fetchColumn();
-$totalChannels = $pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>LemSocial — Панель Администратора</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Murlika — Панель Управления</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
-        .header h1 { margin: 0; color: #38bdf8; font-size: 24px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 30px; margin: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #334155; padding-bottom: 16px; }
+        .header h1 { margin: 0; font-size: 24px; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
+        .header img { width: 36px; height: 36px; border-radius: 8px; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; }
-        .stat-value { font-size: 28px; font-weight: bold; color: #38bdf8; }
+        .stat-card { background: #1e293b; border-radius: 14px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+        .stat-value { font-size: 32px; font-weight: bold; color: #38bdf8; }
         .stat-label { font-size: 14px; color: #94a3b8; margin-top: 4px; }
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn { padding: 10px 20px; background: #1e293b; color: #94a3b8; border-radius: 8px; text-decoration: none; font-weight: bold; }
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 20px; background: #1e293b; color: #94a3b8; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; }
         .tab-btn.active { background: #0284c7; color: white; }
-        table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
-        th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 14px; overflow: hidden; }
+        th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
         th { background: #0f172a; color: #38bdf8; }
-        .btn { padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
+        .btn { padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
         .btn-green { background: #10b981; color: white; }
         .btn-red { background: #ef4444; color: white; }
         .btn-gray { background: #64748b; color: white; }
-        .logout { color: #ef4444; text-decoration: none; font-weight: bold; }
+        .logout { color: #ef4444; text-decoration: none; font-weight: bold; padding: 8px 16px; background: rgba(239,68,68,0.1); border-radius: 10px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🛡️ LemSocial Панель Управления</h1>
+        <h1><img src="https://myrlika.bond/Logo/murlika.png" alt="Logo"> Murlika Admin Panel</h1>
         <a href="index.php?logout=1" class="logout">Выйти 🚪</a>
     </div>
 
     <div class="stats-grid">
         <div class="stat-card"><div class="stat-value"><?= $totalUsers ?></div><div class="stat-label">Пользователей</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $totalPosts ?></div><div class="stat-label">Постов</div></div>
-        <div class="stat-card"><div class="stat-value"><?= $totalTracks ?></div><div class="stat-label">Треков музыки</div></div>
+        <div class="stat-card"><div class="stat-value"><?= $totalPosts ?></div><div class="stat-label">Постов в ленте</div></div>
+        <div class="stat-card"><div class="stat-value"><?= $totalTracks ?></div><div class="stat-label">Музыкальных треков</div></div>
         <div class="stat-card"><div class="stat-value"><?= $totalChannels ?></div><div class="stat-label">Каналов и Пабликов</div></div>
     </div>
 
@@ -141,6 +130,7 @@ $totalChannels = $pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
         <a href="index.php?tab=posts" class="tab-btn <?= $tab === 'posts' ? 'active' : '' ?>">📝 Посты</a>
         <a href="index.php?tab=music" class="tab-btn <?= $tab === 'music' ? 'active' : '' ?>">🎵 Музыка</a>
         <a href="index.php?tab=channels" class="tab-btn <?= $tab === 'channels' ? 'active' : '' ?>">📢 Каналы</a>
+        <a href="index.php?tab=logs" class="tab-btn <?= $tab === 'logs' ? 'active' : '' ?>">📜 Логи действий</a>
     </div>
 
     <?php if ($tab === 'users'): ?>
@@ -178,7 +168,7 @@ $totalChannels = $pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
                 <tr>
                     <td><?= $p['id'] ?></td>
                     <td><?= htmlspecialchars($p['text']) ?></td>
-                    <td><?= $p['image_url'] ? '🖼️ Есть' : 'Нет' ?></td>
+                    <td><?= !empty($p['image_url']) ? '<a href="'.htmlspecialchars($p['image_url']).'" target="_blank" style="color:#38bdf8;">🖼️ Посмотреть</a>' : 'Нет' ?></td>
                     <td>❤️ <?= $p['likes_count'] ?></td>
                     <td><?= $p['created_at'] ?></td>
                     <td><a href="index.php?action=delete_post&id=<?= $p['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить пост?')">Удалить</a></td>
@@ -207,7 +197,7 @@ $totalChannels = $pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
         </table>
     <?php elseif ($tab === 'channels'): ?>
         <table>
-            <thead><tr><th>ID</th><th>Название</th><th>Категория</th><th>Подписчиков</th><th>Галочка</th><th>Действия</th></tr></thead>
+            <thead><tr><th>ID</th><th>Название</th><th>Категория</th><th>Подписчиков</th><th>Действия</th></tr></thead>
             <tbody>
                 <?php
                 $channels = $pdo->query("SELECT * FROM channels ORDER BY id DESC")->fetchAll();
@@ -218,8 +208,25 @@ $totalChannels = $pdo->query("SELECT COUNT(*) FROM channels")->fetchColumn();
                     <td><b><?= htmlspecialchars($c['name']) ?></b></td>
                     <td><?= htmlspecialchars($c['category'] ?? '') ?></td>
                     <td>👥 <?= $c['subscribers_count'] ?></td>
-                    <td><?= $c['is_verified'] ? '✅ Да' : '❌ Нет' ?></td>
                     <td><a href="index.php?action=delete_channel&id=<?= $c['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить канал?')">Удалить</a></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php elseif ($tab === 'logs'): ?>
+        <table>
+            <thead><tr><th>ID</th><th>User ID</th><th>Действие</th><th>Детали</th><th>Время</th></tr></thead>
+            <tbody>
+                <?php
+                $logs = $pdo->query("SELECT * FROM user_activity_logs ORDER BY id DESC LIMIT 100")->fetchAll();
+                foreach ($logs as $l):
+                ?>
+                <tr>
+                    <td><?= $l['id'] ?></td>
+                    <td><b>ID <?= $l['user_id'] ?></b></td>
+                    <td><span style="color:#38bdf8; font-weight:bold;"><?= htmlspecialchars($l['action_type']) ?></span></td>
+                    <td><?= htmlspecialchars($l['details']) ?></td>
+                    <td><?= $l['created_at'] ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
