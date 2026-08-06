@@ -252,6 +252,9 @@ public struct ProfileView: View {
             }
         }
         .navigationBarTitle(viewModel.user.fullName, displayMode: .inline)
+        .onAppear {
+            viewModel.loadUserProfile()
+        }
         .sheet(isPresented: $showEditModal) {
             EditProfileView(viewModel: viewModel)
         }

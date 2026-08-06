@@ -22,8 +22,10 @@ public class ProfileViewModel: ObservableObject {
         Task {
             do {
                 let fetchedUser: User = try await NetworkManager.shared.request(endpoint: "profile.php?user_id=\(user.id)")
+                let allFeedPosts: [Post] = try await NetworkManager.shared.request(endpoint: "feed.php")
                 await MainActor.run {
                     self.user = fetchedUser
+                    self.userPosts = allFeedPosts.filter { $0.author.id == fetchedUser.id }
                     self.isLoading = false
                 }
             } catch {

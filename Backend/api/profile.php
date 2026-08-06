@@ -15,6 +15,48 @@ if ($method === 'GET') {
         Database::sendResponse(false, "Пользователь не найден", null, 404);
     }
 
+    // Загрузка всех постов пользователя на его стену
+    $postStmt = $pdo->prepare("
+        SELECT p.id, p.user_id, p.text, p.image_url, p.audio_url, p.video_url,
+               p.likes_count, p.reposts_count, p.comments_count, p.views_count, p.created_at
+        FROM posts p
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
+    ");
+    $postStmt->execute([$userId]);
+    $postRows = $postStmt->fetchAll();
+
+    $userPosts = [];
+    foreach ($postRows as $p) {
+        $attachments = [];
+        if (!empty($p['image_url'])) {
+            $attachments[] = ['id' => 'img_' . $p['id'], 'type' => 'image', 'url' => $p['image_url']];
+        }
+        $userPosts[] = [
+            'id' => (int)$p['id'],
+            'author' => [
+                'id' => (int)$row['id'],
+                'username' => $row['username'],
+                'first_name' => $row['first_name'],
+                'last_name' => $row['last_name'],
+                'avatar_url' => $row['avatar_url'],
+                'is_verified' => (bool)$row['is_verified'],
+                'followers_count' => (int)$row['followers_count'],
+                'following_count' => (int)$row['following_count'],
+                'is_online' => true
+            ],
+            'text' => $p['text'],
+            'attachments' => $attachments,
+            'likes_count' => (int)($p['likes_count'] ?? 0),
+            'is_liked' => false,
+            'reposts_count' => (int)($p['reposts_count'] ?? 0),
+            'is_reposted' => false,
+            'comments_count' => (int)($p['comments_count'] ?? 0),
+            'views_count' => (int)($p['views_count'] ?? 0),
+            'created_at_formatted' => date('d.m.Y в H:i', strtotime($p['created_at']))
+        ];
+    }
+
     $user = [
         'id' => (int)$row['id'],
         'username' => $row['username'],
@@ -27,7 +69,8 @@ if ($method === 'GET') {
         'followers_count' => (int)$row['followers_count'],
         'following_count' => (int)$row['following_count'],
         'bio' => $row['bio'],
-        'is_online' => true
+        'is_online' => true,
+        'posts' => $userPosts
     ];
 
     Database::sendResponse(true, "Профиль получен", $user);
@@ -39,26 +82,6 @@ if ($method === 'GET') {
     $avatarUrl = $input['avatar_url'] ?? $_POST['avatar_url'] ?? null;
     $coverUrl = $input['cover_url'] ?? $_POST['cover_url'] ?? null;
     $bio = $input['bio'] ?? $_POST['bio'] ?? null;
-
-    // Обработка загрузки нового аватара файлом
-    if (isset($_FILES['avatar_file']) && $_FILES['avatar_file']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/avatars/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-        $fileName = 'avatar_' . $userId . '_' . time() . '.jpg';
-        if (move_uploaded_file($_FILES['avatar_file']['tmp_name'], $uploadDir . $fileName)) {
-            $avatarUrl = 'http://46.53.128.120/uploads/avatars/' . $fileName;
-        }
-    }
-
-    // Обработка загрузки новой обложки файлом
-    if (isset($_FILES['cover_file']) && $_FILES['cover_file']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/covers/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-        $fileName = 'cover_' . $userId . '_' . time() . '.jpg';
-        if (move_uploaded_file($_FILES['cover_file']['tmp_name'], $uploadDir . $fileName)) {
-            $coverUrl = 'http://46.53.128.120/uploads/covers/' . $fileName;
-        }
-    }
 
     $fields = [];
     $params = [];

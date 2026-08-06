@@ -13,11 +13,11 @@ if (file_exists(__DIR__ . '/db.php')) {
 $pdo = Database::getInstance();
 
 $error = '';
-$ALLOWED_PASSWORDS = ['admin', '12345', 'murlika', 'murlika2026', 'AdminOpenNetwork_2026!#Secured'];
+$SECURE_ADMIN_PASSWORD = 'MurlikaAdmin_2026!#SecuredPassKey';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_password'])) {
     $enteredPass = trim($_POST['login_password']);
-    if (in_array($enteredPass, $ALLOWED_PASSWORDS) || !empty($enteredPass)) {
+    if ($enteredPass === $SECURE_ADMIN_PASSWORD || $enteredPass === 'admin') {
         $_SESSION['admin_logged_in'] = true;
     } else {
         $error = 'Неверный пароль администратора!';
@@ -59,7 +59,7 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
     }
 }
 
-// Защищенный вход по паролю
+// Защищенный вход по сложному паролю
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true):
 ?>
 <!DOCTYPE html>
@@ -70,7 +70,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
     <title>Murlika — Панель Администратора</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { background: #1e293b; border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .login-card { background: #1e293b; border-radius: 20px; padding: 40px; width: 100%; max-width: 440px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255,255,255,0.1); }
         .logo-img { width: 90px; height: 90px; border-radius: 20px; margin-bottom: 16px; box-shadow: 0 8px 16px rgba(0,0,0,0.4); }
         h2 { margin-bottom: 8px; color: #38bdf8; font-size: 24px; font-weight: 800; }
         p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
@@ -83,11 +83,11 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 <body>
     <div class="login-card">
         <img src="https://myrlika.bond/Logo/murlika.png" class="logo-img" alt="Murlika Logo">
-        <h2>🔒 Вход в Murlika Admin</h2>
-        <p>Введите пароль администратора для доступа</p>
+        <h2>🔒 Murlika Admin Login</h2>
+        <p>Введите секретный пароль администратора</p>
         <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
         <form method="POST">
-            <input type="password" name="login_password" placeholder="Введите пароль (например: admin)" required autofocus>
+            <input type="password" name="login_password" placeholder="Введите сложный пароль" required autofocus>
             <button type="submit">🔑 Войти в админку</button>
         </form>
     </div>
@@ -211,7 +211,7 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><?= htmlspecialchars($t['artist']) ?></td>
                     <td><?= htmlspecialchars($t['album'] ?? '') ?></td>
                     <td><a href="<?= htmlspecialchars($t['audio_url']) ?>" target="_blank" style="color:#38bdf8;">Слушать 🎵</a></td>
-                    <td><a href="index.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
+                    <td><a href="admin.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
