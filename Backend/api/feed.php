@@ -26,16 +26,20 @@ if ($method === 'GET') {
     $postId = (int)($_GET['post_id'] ?? 0);
 
     if ($action === 'comments' && $postId > 0) {
-        $stmt = $pdo->prepare("
-            SELECT c.id, c.post_id, c.text, c.created_at,
-                   u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified, u.is_online
-            FROM post_comments c
-            LEFT JOIN users u ON c.user_id = u.id
-            WHERE c.post_id = ?
-            ORDER BY c.id ASC
-        ");
-        $stmt->execute([$postId]);
-        $comments = $stmt->fetchAll();
+        try {
+            $stmt = $pdo->prepare("
+                SELECT c.id, c.post_id, c.text, c.created_at,
+                       u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified
+                FROM post_comments c
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE c.post_id = ?
+                ORDER BY c.id ASC
+            ");
+            $stmt->execute([$postId]);
+            $comments = $stmt->fetchAll();
+        } catch (Exception $e) {
+            $comments = [];
+        }
 
         $result = array_map(function($c) {
             return [
@@ -46,7 +50,7 @@ if ($method === 'GET') {
                     'username' => $c['username'] ?? 'user',
                     'first_name' => $c['first_name'] ?? 'Пользователь',
                     'last_name' => $c['last_name'] ?? '',
-                    'avatar_url' => $c['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
+                    'avatar_url' => !empty($c['avatar_url']) ? $c['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                     'is_verified' => (bool)($c['is_verified'] ?? false),
                     'is_online' => true
                 ],
@@ -58,19 +62,30 @@ if ($method === 'GET') {
         Database::sendResponse(true, "Комментарии загружены", $result);
     }
 
-    // Запрос ленты новостей со 100% гарантией возврата постов (LEFT JOIN)
-    $stmt = $pdo->prepare("
-        SELECT 
-            p.id, p.user_id, p.text, p.image_url, p.audio_url, p.video_url,
-            p.likes_count, p.reposts_count, p.comments_count, p.views_count, p.created_at,
-            u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified, u.status_text, u.is_online
-        FROM posts p
-        LEFT JOIN users u ON p.user_id = u.id
-        ORDER BY p.created_at DESC
-        LIMIT 100
-    ");
-    $stmt->execute();
-    $rows = $stmt->fetchAll();
+    // Запрос ленты новостей из базы данных MariaDB с отказоустойчивым try-catch
+    $rows = [];
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                p.id, p.user_id, p.text, p.image_url, p.audio_url, p.video_url,
+                p.likes_count, p.reposts_count, p.comments_count, p.views_count, p.created_at,
+                u.id as author_id, u.username, u.first_name, u.last_name, u.avatar_url, u.is_verified, u.status_text
+            FROM posts p
+            LEFT JOIN users u ON p.user_id = u.id
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+    } catch (Exception $e) {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM posts ORDER BY id DESC LIMIT 100");
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+        } catch (Exception $e2) {
+            $rows = [];
+        }
+    }
 
     $posts = [];
     foreach ($rows as $row) {
@@ -112,13 +127,13 @@ if ($method === 'GET') {
             ],
             'text' => $row['text'],
             'attachments' => $attachments,
-            'likes_count' => (int)$row['likes_count'],
+            'likes_count' => (int)($row['likes_count'] ?? 0),
             'is_liked' => false,
-            'reposts_count' => (int)$row['reposts_count'],
+            'reposts_count' => (int)($row['reposts_count'] ?? 0),
             'is_reposted' => false,
-            'comments_count' => (int)$row['comments_count'],
-            'views_count' => (int)$row['views_count'],
-            'created_at_formatted' => date('d.m.Y в H:i', strtotime($row['created_at']))
+            'comments_count' => (int)($row['comments_count'] ?? 0),
+            'views_count' => (int)($row['views_count'] ?? 0),
+            'created_at_formatted' => !empty($row['created_at']) ? date('d.m.Y в H:i', strtotime($row['created_at'])) : 'Только что'
         ];
     }
 
@@ -162,7 +177,7 @@ if ($method === 'GET') {
 
         logUserAction($pdo, $userId, 'create_comment', ['post_id' => $postId, 'comment_id' => $commentId, 'text' => $text]);
 
-        $uStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, is_verified, is_online FROM users WHERE id = ?");
+        $uStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, is_verified FROM users WHERE id = ?");
         $uStmt->execute([$userId]);
         $u = $uStmt->fetch();
 
@@ -174,7 +189,7 @@ if ($method === 'GET') {
                 'username' => $u['username'] ?? 'user',
                 'first_name' => $u['first_name'] ?? 'Пользователь',
                 'last_name' => $u['last_name'] ?? '',
-                'avatar_url' => $u['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
+                'avatar_url' => !empty($u['avatar_url']) ? $u['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                 'is_verified' => (bool)($u['is_verified'] ?? false),
                 'is_online' => true
             ],
@@ -210,7 +225,7 @@ if ($method === 'GET') {
 
         logUserAction($pdo, $userId, 'create_post', ['post_id' => $newPostId, 'text' => $text, 'image_url' => $imageUrl]);
 
-        $userStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, status_text, is_verified, is_online FROM users WHERE id = ?");
+        $userStmt = $pdo->prepare("SELECT id, username, first_name, last_name, avatar_url, status_text, is_verified FROM users WHERE id = ?");
         $userStmt->execute([$userId]);
         $author = $userStmt->fetch();
 
@@ -221,7 +236,7 @@ if ($method === 'GET') {
                 'username' => $author['username'] ?? 'user',
                 'first_name' => $author['first_name'] ?? 'Пользователь',
                 'last_name' => $author['last_name'] ?? '',
-                'avatar_url' => $author['avatar_url'] ?? 'https://myrlika.bond/Logo/murlika.png',
+                'avatar_url' => !empty($author['avatar_url']) ? $author['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                 'status_text' => $author['status_text'] ?? '',
                 'is_verified' => (bool)($author['is_verified'] ?? false),
                 'is_online' => true
