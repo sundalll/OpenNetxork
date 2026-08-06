@@ -62,15 +62,25 @@ public struct CommentsModalView: View {
                     Button(action: {
                         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
-                        let newComment = Comment(
-                            id: Int.random(in: 1000...9999),
-                            postId: post.id,
-                            author: currentUser,
-                            text: trimmed,
-                            createdAtFormatted: "Только что"
-                        )
-                        comments.append(newComment)
-                        commentText = ""
+                        
+                        let body: [String: Any] = [
+                            "action": "comment",
+                            "post_id": post.id,
+                            "user_id": currentUser.id,
+                            "text": trimmed
+                        ]
+                        
+                        Task {
+                            do {
+                                let resp: APIResponse<Comment> = try await NetworkManager.shared.request(endpoint: "feed.php", method: "POST", jsonBody: body)
+                                if resp.success, let newComm = resp.data {
+                                    await MainActor.run {
+                                        comments.append(newComm)
+                                        commentText = ""
+                                    }
+                                }
+                            } catch {}
+                        }
                     }) {
                         Image(systemName: "paperplane.fill")
                             .font(.system(size: 20))
@@ -84,6 +94,16 @@ public struct CommentsModalView: View {
             }
             .navigationBarTitle("Комментарии", displayMode: .inline)
             .navigationBarItems(trailing: Button("Закрыть") { presentationMode.wrappedValue.dismiss() })
+            .onAppear {
+                Task {
+                    do {
+                        let fetched: [Comment] = try await NetworkManager.shared.request(endpoint: "feed.php?action=comments&post_id=\(post.id)")
+                        await MainActor.run {
+                            self.comments = fetched
+                        }
+                    } catch {}
+                }
+            }
         }
     }
 }
@@ -267,7 +287,7 @@ public struct FeedView: View {
                                     feedViewModel.toggleLike(for: post)
                                 },
                                 onRepost: {
-                                    feedViewModel.toggleRepost(for: post)
+                                    feedViewModel.toggleRepost(for: post, user: currentUser)
                                 },
                                 onComment: {
                                     selectedPostForComments = post

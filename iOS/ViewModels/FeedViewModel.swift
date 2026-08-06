@@ -35,10 +35,22 @@ public class FeedViewModel: ObservableObject {
         }
     }
 
-    public func toggleRepost(for post: Post) {
+    public func toggleRepost(for post: Post, user: User? = nil) {
         if let index = posts.firstIndex(where: { $0.id == post.id }) {
             posts[index].isReposted.toggle()
             posts[index].repostsCount += posts[index].isReposted ? 1 : -1
+        }
+
+        let body: [String: Any] = [
+            "action": "repost",
+            "post_id": post.id,
+            "user_id": user?.id ?? 1
+        ]
+
+        Task {
+            do {
+                let _: APIResponse<[String: Bool]> = try await NetworkManager.shared.request(endpoint: "feed.php", method: "POST", jsonBody: body)
+            } catch {}
         }
     }
 
