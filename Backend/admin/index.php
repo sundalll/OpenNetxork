@@ -1,7 +1,14 @@
 <?php
 session_start();
 
-require_once __DIR__ . '/../db.php';
+if (file_exists(__DIR__ . '/db.php')) {
+    require_once __DIR__ . '/db.php';
+} elseif (file_exists(__DIR__ . '/../db.php')) {
+    require_once __DIR__ . '/../db.php';
+} else {
+    die("Database config file not found.");
+}
+
 $pdo = Database::getInstance();
 
 // Авто-вход в админку без ограничений или с простым кликом
