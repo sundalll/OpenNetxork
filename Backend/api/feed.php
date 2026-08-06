@@ -52,6 +52,8 @@ if ($method === 'GET') {
                     'last_name' => $c['last_name'] ?? '',
                     'avatar_url' => !empty($c['avatar_url']) ? $c['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                     'is_verified' => (bool)($c['is_verified'] ?? false),
+                    'followers_count' => 0,
+                    'following_count' => 0,
                     'is_online' => true
                 ],
                 'text' => $c['text'],
@@ -123,6 +125,8 @@ if ($method === 'GET') {
                 'avatar_url' => $avatarUrl,
                 'status_text' => $row['status_text'] ?? '',
                 'is_verified' => (bool)($row['is_verified'] ?? false),
+                'followers_count' => 0,
+                'following_count' => 0,
                 'is_online' => true
             ],
             'text' => $row['text'],
@@ -153,7 +157,6 @@ if ($method === 'GET') {
     $imageUrl = trim($input['image_url'] ?? '');
     $postId = (int)($input['post_id'] ?? 0);
 
-    // Подбор первого живого пользователя из БД при сбое ID
     $userCheck = $pdo->prepare("SELECT id FROM users WHERE id = ?");
     $userCheck->execute([$userId]);
     if (!$userCheck->fetch()) {
@@ -191,6 +194,8 @@ if ($method === 'GET') {
                 'last_name' => $u['last_name'] ?? '',
                 'avatar_url' => !empty($u['avatar_url']) ? $u['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                 'is_verified' => (bool)($u['is_verified'] ?? false),
+                'followers_count' => 0,
+                'following_count' => 0,
                 'is_online' => true
             ],
             'text' => $text,
@@ -239,6 +244,8 @@ if ($method === 'GET') {
                 'avatar_url' => !empty($author['avatar_url']) ? $author['avatar_url'] : 'https://myrlika.bond/Logo/murlika.png',
                 'status_text' => $author['status_text'] ?? '',
                 'is_verified' => (bool)($author['is_verified'] ?? false),
+                'followers_count' => 0,
+                'following_count' => 0,
                 'is_online' => true
             ],
             'text' => $text,

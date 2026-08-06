@@ -16,7 +16,7 @@ public struct User: Identifiable, Codable, Equatable, Hashable {
     public var lastSeenText: String?
     
     public var fullName: String {
-        return "\(firstName) \(lastName)"
+        return "\(firstName) \(lastName)".trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -65,6 +65,23 @@ public struct User: Identifiable, Codable, Equatable, Hashable {
         self.lastSeenText = lastSeenText
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        username = try container.decodeIfPresent(String.self, forKey: .username) ?? "user"
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName) ?? "Пользователь"
+        lastName = try container.decodeIfPresent(String.self, forKey: .lastName) ?? ""
+        avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+        coverUrl = try container.decodeIfPresent(String.self, forKey: .coverUrl)
+        statusText = try container.decodeIfPresent(String.self, forKey: .statusText)
+        isVerified = try container.decodeIfPresent(Bool.self, forKey: .isVerified) ?? false
+        followersCount = try container.decodeIfPresent(Int.self, forKey: .followersCount) ?? 0
+        followingCount = try container.decodeIfPresent(Int.self, forKey: .followingCount) ?? 0
+        bio = try container.decodeIfPresent(String.self, forKey: .bio)
+        isOnline = try container.decodeIfPresent(Bool.self, forKey: .isOnline) ?? true
+        lastSeenText = try container.decodeIfPresent(String.self, forKey: .lastSeenText)
+    }
+
     public static var demoUser = User(
         id: 1,
         username: "user",
@@ -76,7 +93,7 @@ public struct User: Identifiable, Codable, Equatable, Hashable {
         isVerified: true,
         followersCount: 0,
         followingCount: 0,
-        bio: "Пользователь сети OpenNetwork",
+        bio: "Пользователь сети Murlika",
         isOnline: true
     )
 }
