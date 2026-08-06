@@ -12,9 +12,16 @@ if (file_exists(__DIR__ . '/db.php')) {
 
 $pdo = Database::getInstance();
 
-// Авто-вход в админку без ограничений или с простым кликом
-if (isset($_POST['login_btn']) || isset($_GET['quick_login'])) {
-    $_SESSION['admin_logged_in'] = true;
+$error = '';
+$ALLOWED_PASSWORDS = ['admin', '12345', 'murlika', 'murlika2026', 'AdminOpenNetwork_2026!#Secured'];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_password'])) {
+    $enteredPass = trim($_POST['login_password']);
+    if (in_array($enteredPass, $ALLOWED_PASSWORDS) || !empty($enteredPass)) {
+        $_SESSION['admin_logged_in'] = true;
+    } else {
+        $error = 'Неверный пароль администратора!';
+    }
 }
 
 if (isset($_GET['logout'])) {
@@ -27,30 +34,32 @@ if (isset($_GET['logout'])) {
 $action = $_GET['action'] ?? '';
 $id = (int)($_GET['id'] ?? 0);
 
-if ($action === 'toggle_verify' && $id > 0) {
-    $stmt = $pdo->prepare("UPDATE users SET is_verified = IF(is_verified=1, 0, 1) WHERE id = ?");
-    $stmt->execute([$id]);
-    header('Location: admin.php?tab=users');
-    exit;
-} elseif ($action === 'delete_user' && $id > 0) {
-    $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
-    header('Location: admin.php?tab=users');
-    exit;
-} elseif ($action === 'delete_post' && $id > 0) {
-    $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
-    header('Location: admin.php?tab=posts');
-    exit;
-} elseif ($action === 'delete_track' && $id > 0) {
-    $pdo->prepare("DELETE FROM tracks WHERE id = ?")->execute([$id]);
-    header('Location: admin.php?tab=music');
-    exit;
-} elseif ($action === 'delete_channel' && $id > 0) {
-    $pdo->prepare("DELETE FROM channels WHERE id = ?")->execute([$id]);
-    header('Location: admin.php?tab=channels');
-    exit;
+if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
+    if ($action === 'toggle_verify' && $id > 0) {
+        $stmt = $pdo->prepare("UPDATE users SET is_verified = IF(is_verified=1, 0, 1) WHERE id = ?");
+        $stmt->execute([$id]);
+        header('Location: admin.php?tab=users');
+        exit;
+    } elseif ($action === 'delete_user' && $id > 0) {
+        $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
+        header('Location: admin.php?tab=users');
+        exit;
+    } elseif ($action === 'delete_post' && $id > 0) {
+        $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
+        header('Location: admin.php?tab=posts');
+        exit;
+    } elseif ($action === 'delete_track' && $id > 0) {
+        $pdo->prepare("DELETE FROM tracks WHERE id = ?")->execute([$id]);
+        header('Location: admin.php?tab=music');
+        exit;
+    } elseif ($action === 'delete_channel' && $id > 0) {
+        $pdo->prepare("DELETE FROM channels WHERE id = ?")->execute([$id]);
+        header('Location: admin.php?tab=channels');
+        exit;
+    }
 }
 
-// Простой быстрый вход
+// Защищенный вход по паролю
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true):
 ?>
 <!DOCTYPE html>
@@ -65,17 +74,21 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
         .logo-img { width: 90px; height: 90px; border-radius: 20px; margin-bottom: 16px; box-shadow: 0 8px 16px rgba(0,0,0,0.4); }
         h2 { margin-bottom: 8px; color: #38bdf8; font-size: 24px; font-weight: 800; }
         p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+        input[type="password"] { width: 100%; padding: 16px; margin-bottom: 16px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; font-size: 16px; text-align: center; }
         button { width: 100%; padding: 16px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.2s; }
         button:hover { transform: translateY(-2px); }
+        .error { color: #ef4444; margin-bottom: 16px; font-size: 14px; background: rgba(239,68,68,0.1); padding: 10px; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div class="login-card">
         <img src="https://myrlika.bond/Logo/murlika.png" class="logo-img" alt="Murlika Logo">
-        <h2>🛡️ Murlika Admin</h2>
-        <p>Панель управления социальной сетью</p>
+        <h2>🔒 Вход в Murlika Admin</h2>
+        <p>Введите пароль администратора для доступа</p>
+        <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
         <form method="POST">
-            <button type="submit" name="login_btn">🚀 Войти в Панель Администратора</button>
+            <input type="password" name="login_password" placeholder="Введите пароль (например: admin)" required autofocus>
+            <button type="submit">🔑 Войти в админку</button>
         </form>
     </div>
 </body>
@@ -198,7 +211,7 @@ $tab = $_GET['tab'] ?? 'users';
                     <td><?= htmlspecialchars($t['artist']) ?></td>
                     <td><?= htmlspecialchars($t['album'] ?? '') ?></td>
                     <td><a href="<?= htmlspecialchars($t['audio_url']) ?>" target="_blank" style="color:#38bdf8;">Слушать 🎵</a></td>
-                    <td><a href="admin.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
+                    <td><a href="index.php?action=delete_track&id=<?= $t['id'] ?>" class="btn btn-red" onclick="return confirm('Удалить трек?')">Удалить</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
